@@ -1,0 +1,164 @@
+/* Genel Sayfa Başlıkları */
+.page-sub-title {
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+/* --- DERS SEÇİM KARTI --- */
+.filter-card {
+  background-color: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  margin-bottom: 30px;
+  border: 1px solid #f0f0f0;
+}
+
+.filter-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #333;
+  font-size: 14px;
+}
+/* --- src/pages/Teacher/TeacherStudents.css --- */
+
+/* Select Kapsayıcısı */
+.select-wrapper {
+  position: relative;
+  border: 2px solid #1976d2; /* Mavi ve belirgin çerçeve */
+  border-radius: 8px;
+  background-color: white;
+  margin-top: 10px; /* Üst kısımla yapışmasın */
+  height: 50px;
+  display: flex;
+  align-items: center;
+}
+
+/* Çizginin Üzerindeki Etiket (Ders) */
+.small-label {
+  position: absolute;
+  top: -10px; /* Tam çizginin üzerine çıkartır */
+  left: 12px;
+  background-color: white; /* Arkadaki çizgiyi gizler */
+  padding: 0 6px; /* Yazının sağına soluna boşluk */
+  font-size: 12px;
+  color: #1976d2; /* Mavi yazı */
+  font-weight: 700;
+  z-index: 10; /* En üstte durmasını sağlar */
+}
+
+/* Select Kutusu */
+.course-select {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  padding: 0 15px;
+  font-size: 14px;
+  color: #333;
+  outline: none;
+  cursor: pointer;
+  appearance: none; /* Varsayılan ok işaretini kaldırır (isteğe bağlı) */
+  font-weight: 500;
+  position: relative;
+  z-index: 2;
+}
+/* YENİ EKLENEN OK İKONU STİLİ */
+.select-arrow {
+  position: absolute;
+  right: 15px; /* En sağa yasla */
+  color: #757575; /* Gri renk */
+  font-size: 14px;
+  pointer-events: none; /* ÖNEMLİ: Tıklayınca select açılsın diye */
+  z-index: 1;
+}
+
+/* Kutuya tıklayınca ok rengi mavi olsun (İsteğe bağlı) */
+.select-wrapper:focus-within .select-arrow {
+  color: #1976d2;
+}
+/* Eğer tarayıcının kendi ok işaretini geri isterseniz appearance satırını silin */
+
+
+/* --- ÖĞRENCİ LİSTESİ KARTI --- */
+.student-list-card {
+  background-color: white;
+  border-radius: 12px;
+  padding: 25px; /* Dış boşluk */
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  border: 1px solid #f0f0f0;
+}
+
+.card-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 20px 0;
+}
+
+/* Liste Elemanı */
+.student-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.student-item:hover {
+  background-color: #fafafa; /* Hover efekti */
+}
+
+.student-item:last-child {
+  border-bottom: none;
+}
+
+.student-info-group {
+  display: flex;
+  align-items: center;
+}
+
+/* Yuvarlak Avatar */
+.student-avatar {
+  width: 50px;
+  height: 50px;
+  background-color: #e3f2fd; /* Açık mavi arka plan */
+  color: #1976d2; /* Koyu mavi yazı */
+  border-radius: 12px; /* Hafif karemsi yuvarlak */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 18px;
+  margin-right: 20px;
+}
+
+.student-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.student-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.student-subtext {
+  font-size: 12px;
+  color: #757575;
+  margin-bottom: 2px;
+}
+
+/* Sağdaki Ok İkonu */
+.student-action {
+  color: #999;
+  font-size: 14px;
+  padding-right: 10px;
+}

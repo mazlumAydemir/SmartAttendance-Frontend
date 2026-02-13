@@ -1,0 +1,166 @@
+/* src/pages/Student/StudentAttendance.css */
+
+/* --- HEADER ALANI (Global stillerden bağımsız çalışması için) --- */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  width: 100%;
+}
+
+.dashboard-header h1 {
+  font-size: 24px;
+  color: #333;
+  margin: 0;
+  font-weight: 500;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px; /* Butonlar arası boşluk */
+}
+
+/* TR Butonu */
+.lang-btn {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 12px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.lang-btn:hover {
+  opacity: 0.9;
+}
+
+/* Çıkış (Exit) İkonu */
+.logout-icon {
+  color: #1976d2; /* Mavi renk */
+  font-size: 22px; /* Boyut */
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.logout-icon:hover {
+  color: #d32f2f; /* Üzerine gelince kırmızı olsun */
+}
+
+/* --- ANA KART TASARIMI --- */
+.attendance-page-container {
+  padding-top: 5px;
+}
+
+.attendance-main-card {
+  background-color: white;
+  border-radius: 12px;
+  padding: 30px; /* İç boşluk artırıldı */
+  box-shadow: 0 4px 15px rgba(0,0,0,0.03); /* Gölge belirginleştirildi */
+  border: 1px solid #f0f0f0;
+}
+
+/* Kart İç Başlığı */
+.card-header-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #f9f9f9;
+}
+
+.header-icon-blue {
+  font-size: 20px;
+  color: #1976d2;
+  margin-right: 12px;
+}
+
+.header-title-blue {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1976d2;
+  margin: 0;
+}
+
+/* --- LİSTE ELEMANLARI --- */
+.attendance-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.attendance-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.attendance-row:last-child {
+  border-bottom: none;
+}
+
+/* Ders Bilgisi */
+.course-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1; /* Alanı kapla */
+  padding-right: 20px;
+}
+
+.course-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.course-meta {
+  font-size: 12px;
+  color: #888;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* Sağdaki Gri Kutu (Badge) */
+.attendance-badge {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 10px 0; /* Dikey boşluk */
+  width: 80px; /* Sabit genişlik */
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid #eee;
+}
+
+.badge-count {
+  font-size: 14px;
+  font-weight: 700;
+  color: #333;
+}
+
+.badge-label {
+  font-size: 9px;
+  color: #999;
+  margin-top: 3px;
+  font-weight: 500;
+}
+
+/* Mobil Uyumluluk */
+@media (max-width: 600px) {
+  .attendance-row {
+    align-items: flex-start;
+  }
+  .attendance-badge {
+    width: 70px;
+    padding: 8px 0;
+  }
+}

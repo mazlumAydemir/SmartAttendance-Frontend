@@ -1,0 +1,115 @@
+/* --- GENEL SAYFA STİLLERİ --- */
+.attendance-section-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px; padding: 0 5px;
+}
+.section-title-text { font-weight: bold; font-size: 14px; color: #333; text-decoration: underline; }
+.custom-checkbox { width: 20px; height: 20px; accent-color: #1976d2; cursor: pointer; }
+
+/* KARTLAR */
+.attendance-cards-container { display: flex; flex-direction: column; gap: 15px; }
+.attendance-card {
+  display: flex; align-items: center; padding: 25px; border-radius: 16px;
+  color: white; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+}
+.attendance-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+.card-blue { background-color: #1976d2; }
+.card-green { background-color: #43a047; }
+.card-orange { background-color: #fb8c00; }
+.card-icon-box {
+  background-color: rgba(255, 255, 255, 0.2); width: 60px; height: 60px;
+  border-radius: 12px; display: flex; justify-content: center; align-items: center;
+  font-size: 30px; margin-right: 20px;
+}
+.card-content h3 { margin: 0 0 5px 0; font-size: 18px; font-weight: 700; }
+.card-content p { margin: 0; font-size: 13px; opacity: 0.9; }
+.card-arrow { font-size: 20px; opacity: 0.8; }
+
+/* --- MODAL TASARIMI (GÖRSELE GÖRE DÜZENLENDİ) --- */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex; justify-content: center; align-items: center;
+  z-index: 2000; animation: fadeIn 0.2s;
+}
+
+.modal-box {
+  background-color: white; width: 90%; max-width: 550px;
+  padding: 35px; border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.modal-title {
+  font-size: 18px; font-weight: 600; color: #222;
+  margin-top: 0; margin-bottom: 30px;
+}
+
+.form-group-row {
+  display: flex; align-items: center; margin-bottom: 25px;
+}
+
+/* Etiketler (Ders, Tarih, Saat) */
+.form-group-row label {
+  width: 60px; /* Sabit genişlik */
+  font-weight: 700; color: #111; font-size: 15px;
+  margin-right: 15px;
+}
+
+/* --- INPUT VE SELECT TASARIMLARI --- */
+
+/* 1. Mavi Çerçeveli Select (Ders) */
+.blue-border {
+  flex: 1; border: 2px solid #1976d2; border-radius: 8px;
+  background-color: white; position: relative;
+}
+
+.modal-input-primary {
+  width: 100%; padding: 12px 15px; border: none; outline: none;
+  background: transparent; font-size: 14px; color: #333;
+  appearance: none; cursor: pointer;
+}
+
+/* 2. Gri Arka Planlı Inputlar (Tarih ve Saat) */
+.gray-bg {
+  flex: 1; background-color: #f9f9f9;
+  border: 1px solid #e0e0e0; border-radius: 8px;
+  position: relative; display: flex; align-items: center;
+}
+
+.modal-input-secondary {
+  width: 100%; padding: 12px 15px; border: none; outline: none;
+  background: transparent; font-size: 14px; color: #555;
+  appearance: none;
+}
+
+/* Dropdown Oku (Sağdaki üçgen) */
+.custom-select-wrapper::after {
+  content: "▼"; font-size: 10px; color: #666;
+  position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* Tarih İkonu */
+.input-with-icon { position: relative; }
+.input-icon-right {
+  position: absolute; right: 15px; color: #666; font-size: 16px;
+  pointer-events: none;
+}
+
+/* --- BUTON --- */
+.modal-footer {
+  display: flex; justify-content: flex-end; margin-top: 35px;
+}
+
+.btn-start-blue {
+  background-color: #1976d2; color: white;
+  border: none; padding: 12px 25px; border-radius: 8px;
+  font-weight: 600; font-size: 14px; cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-start-blue:hover {
+  background-color: #1565c0;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

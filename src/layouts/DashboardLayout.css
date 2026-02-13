@@ -1,0 +1,86 @@
+.dashboard-container {
+  display: flex;
+  min-height: 100vh;
+  background-color: #f3f4f6;
+  position: relative;
+  overflow-x: hidden; /* Yan taşmaları engeller */
+}
+
+/* Masaüstü Varsayılanları */
+.main-content {
+  flex: 1;
+  padding: 20px;
+  margin-left: 260px; /* Sidebar genişliği kadar boşluk bırak */
+  transition: margin-left 0.3s ease;
+  width: 100%;
+}
+
+.mobile-nav {
+  display: none; /* Masaüstünde gizli */
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+/* --- MOBİL GÖRÜNÜM (768px ve altı) --- */
+@media (max-width: 768px) {
+  .dashboard-container {
+    flex-direction: column;
+  }
+
+  .main-content {
+    margin-left: 0 !important; /* Mobilde sol boşluğu sıfırla */
+    padding-top: 70px; /* Üst barın altında kalmaması için */
+    width: 100%;
+  }
+
+  /* Mobilde Üst Bar (Hamburger Menü Alanı) */
+  .mobile-nav {
+    display: flex;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 60px;
+    background-color: white;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    z-index: 900;
+    padding: 0 20px;
+  }
+
+  .hamburger-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #333;
+    cursor: pointer;
+    margin-right: 15px;
+    padding: 5px;
+  }
+
+  .mobile-brand {
+    font-weight: 700;
+    font-size: 18px;
+    color: #0d47a1;
+  }
+
+  /* Siyah Perde (Overlay) */
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 998; /* Sidebar'ın hemen altında */
+    animation: fadeIn 0.3s;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

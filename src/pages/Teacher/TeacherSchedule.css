@@ -1,0 +1,115 @@
+/* Ana Kapsayıcı */
+.schedule-container {
+  background-color: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+  margin-top: 10px;
+  overflow-x: auto; /* Mobilde taşarsa kaydır */
+}
+
+/* Tablo Yapısı */
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px; /* Tablo çok sıkışmasın */
+}
+
+/* Başlıklar (Günler) */
+.schedule-table thead th {
+  background-color: #f5f5f5;
+  color: #555;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 15px;
+  border: 1px solid #e0e0e0;
+  text-align: center;
+}
+
+.time-header {
+  width: 100px; /* Saat sütunu genişliği */
+  font-size: 16px;
+  color: #777;
+}
+
+/* Satırlar ve Hücreler */
+.schedule-table tbody tr {
+  height: 80px; /* Her satırın yüksekliği */
+}
+
+.schedule-table td {
+  border: 1px solid #e0e0e0;
+  vertical-align: middle; /* İçeriği dikey ortala */
+  padding: 5px;
+}
+
+/* Saat Hücresi */
+.time-cell {
+  background-color: #fafafa;
+  color: #666;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Hücre İçeriği (Birden fazla ders varsa alt alta dizilsin) */
+.cell-content {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  height: 100%;
+  justify-content: center;
+}
+
+/* --- DERS KARTLARI --- */
+.event-card {
+  padding: 8px 5px;
+  border-radius: 4px;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  width: 100%;
+  /* İçeriğin sığması için */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+}
+
+/* Renk Sınıfları (Görseldeki renklere uygun) */
+.color-teal {
+  background-color: #26a69a; /* Turkuaz */
+}
+
+.color-green {
+  background-color: #66bb6a; /* Yeşil */
+}
+
+.color-orange {
+  background-color: #ffa726; /* Turuncu */
+}
+
+.color-purple {
+  background-color: #ab47bc; /* Mor */
+}
+
+.color-pink {
+  background-color: #ec407a; /* Pembe */
+}
+
+/* Hover Efekti */
+.event-card:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+  transition: all 0.2s;
+  cursor: default;
+}
+
+/* Mobilde tabloyu kaydırma çubuğu ile göster */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}

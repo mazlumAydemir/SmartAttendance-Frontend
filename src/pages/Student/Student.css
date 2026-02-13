@@ -1,0 +1,114 @@
+/* --- GENEL STİLLER (Diğer sayfalardan miras) --- */
+.dashboard-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;
+}
+.dashboard-header h1 { font-size: 24px; color: #333; margin: 0; font-weight: 500; }
+.header-actions { display: flex; align-items: center; gap: 15px; }
+.lang-btn { background-color: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; }
+.logout-icon { color: #1976d2; font-size: 22px; cursor: pointer; }
+
+/* --- ÖĞRENCİ BİLGİ KARTI --- */
+.student-welcome-card {
+  background-color: white;
+  padding: 20px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  margin-bottom: 30px;
+  border: 1px solid #f0f0f0;
+}
+
+.student-info-left {
+  display: flex;
+  align-items: center;
+}
+
+/* Soru İşaretli Kare Avatar */
+/* --- src/pages/Student/Student.css --- */
+
+/* ...Diğer kodlar aynı kalacak... */
+
+/* Baş Harfli Kare Avatar */
+.student-avatar-box {
+  width: 50px;
+  height: 50px;
+  background-color: #e3f2fd; /* Açık mavi arka plan */
+  border-radius: 8px; /* Hafif yuvarlak köşeli kare */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  
+  color: #1976d2; /* Mavi Yazı Rengi */
+  font-size: 18px; /* Yazı Boyutu */
+  font-weight: 700; /* Kalın Yazı (Bold) */
+  margin-right: 20px;
+  user-select: none; /* Yazının seçilmesini engelle */
+}
+
+/* ...Diğer kodlar aynı kalacak... */
+.student-welcome-card h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+  font-weight: 600;
+}
+
+.student-no {
+  font-size: 14px;
+  color: #777;
+  display: block;
+  margin-top: 4px;
+}
+
+/* --- DÖNEM DERSLERİ KARTI --- */
+.courses-container-card {
+  background-color: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  border: 1px solid #f0f0f0;
+}
+
+.courses-card-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 25px;
+  color: #1976d2;
+}
+
+.courses-header-icon {
+  font-size: 20px;
+  margin-right: 10px;
+}
+
+.courses-card-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1976d2;
+}
+
+/* Ders Listesi */
+.course-item {
+  padding: 15px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.course-item:last-child {
+  border-bottom: none;
+}
+
+.course-title {
+  margin: 0 0 5px 0;
+  font-size: 15px;
+  color: #333;
+  font-weight: 600;
+}
+
+.course-details {
+  margin: 0;
+  font-size: 13px;
+  color: #757575;
+  text-transform: uppercase; /* Tüm harfleri büyük yap */
+}
