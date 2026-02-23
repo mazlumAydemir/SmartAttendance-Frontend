@@ -1,0 +1,134 @@
+/* src/pages/Student/StudentCourseDetails.css */
+
+.details-container {
+  padding: 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Üst Özet Kartı */
+.summary-card {
+  background-color: #fff;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  border: 1px solid #eee;
+  margin-bottom: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.course-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 22px;
+}
+
+.course-header p {
+  margin: 5px 0 0 0;
+  color: #666;
+}
+
+/* İstatistik Kutuları */
+.stats-row {
+  display: flex;
+  gap: 15px;
+}
+
+.stat-box {
+  background-color: #f8f9fa;
+  padding: 15px 20px;
+  border-radius: 10px;
+  text-align: center;
+  min-width: 80px;
+  border: 1px solid #e0e0e0;
+}
+
+.stat-number {
+  display: block;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+  margin-top: 5px;
+  display: block;
+}
+
+/* Renkler */
+.text-green { color: #28a745; }
+.text-red { color: #dc3545; }
+.text-orange { color: #fd7e14; }
+
+/* Liste */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.history-item {
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #eee;
+  transition: transform 0.2s;
+}
+
+.history-item:hover {
+  transform: translateX(5px);
+  border-color: #007bff;
+}
+
+.item-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.date-box {
+  background-color: #e7f1ff;
+  color: #007bff;
+  padding: 10px 15px;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: bold;
+  min-width: 60px;
+}
+
+.date-day { font-size: 18px; display: block; }
+.date-month { font-size: 12px; text-transform: uppercase; }
+
+.session-info h4 { margin: 0 0 5px 0; font-size: 16px; color: #444; }
+.session-info p { margin: 0; font-size: 13px; color: #888; }
+
+/* Durum Badge'leri */
+.status-badge {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-present { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+.status-absent { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+.status-excused { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #888;
+  background: #fff;
+  border-radius: 10px;
+}

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { FaSignOutAlt, FaQrcode, FaSmile, FaMapMarkerAlt, FaChevronRight, FaSpinner, FaCheckCircle } from 'react-icons/fa';
+import { FaSignOutAlt, FaQrcode, FaSmile, FaMapMarkerAlt, FaChevronRight, FaSpinner, FaCheckCircle, FaCalendarAlt, FaClock } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import QRCode from "react-qr-code";
 import DashboardLayout from '../../layouts/DashboardLayout';
-import './TeacherAttendance.css';
+import './TeacherAttendance.css'; 
 
 const TeacherAttendance = () => {
   const navigate = useNavigate();
@@ -12,55 +12,55 @@ const TeacherAttendance = () => {
   // --- STATE TANIMLARI ---
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
-  const [attendanceType, setAttendanceType] = useState(''); // 'QRCode', 'FaceRecognition', 'Location'
+  const [attendanceType, setAttendanceType] = useState('');
   
   // Form Verileri
-  const [courses, setCourses] = useState([]);
-  const [selectedCourseId, setSelectedCourseId] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 16)); 
+  const [courses, setCourses] = useState([]); // Ekranda gösterilecek gruplanmış dersler
+  const [selectedCourseIds, setSelectedCourseIds] = useState(''); // Artık tek ID değil, "2,3" gibi virgüllü tutacağız
   
-  // API Cevabı ve QR Verisi
+  const [selectedDateOnly, setSelectedDateOnly] = useState(new Date().toISOString().slice(0, 10));
+  const [selectedPeriodTime, setSelectedPeriodTime] = useState("08:30");
+
+  const classPeriods = [
+    { id: 1, label: "08:30 - 09:20", value: "08:30" },
+    { id: 2, label: "09:30 - 10:20", value: "09:30" },
+    { id: 3, label: "10:30 - 11:20", value: "10:30" },
+    { id: 4, label: "11:30 - 12:20", value: "11:30" },
+    { id: 5, label: "12:30 - 13:20", value: "12:30" },
+    { id: 6, label: "13:30 - 14:20", value: "13:30" },
+    { id: 7, label: "14:30 - 15:20", value: "14:30" },
+    { id: 8, label: "15:30 - 16:20", value: "15:30" },
+    { id: 9, label: "16:30 - 17:20", value: "16:30" }
+  ];
+  
   const [createdSession, setCreatedSession] = useState(null);
   const [qrContent, setQrContent] = useState("");
-
-  // Yüklenme Durumları
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // --- YARDIMCI: C# TICKS ---
-  // JavaScript zamanını C# Ticks formatına çevirir
   const getDotNetTicks = () => {
     const now = new Date();
-    // 15 Saniyelik geçerlilik süresi ekle
-    const expiryDate = new Date(now.getTime() + 15000); 
-    const ticks = (expiryDate.getTime() * 10000) + 621355968000000000;
-    return ticks;
+    const expiryDate = new Date(now.getTime() + 3600000);
+    return (expiryDate.getTime() * 10000) + 621355968000000000;
   };
 
-  // --- QR GÜNCELLEYİCİ ---
-  // Sadece oturum varsa VE yöntem QR ise çalışır
   useEffect(() => {
     let intervalId;
-
     if (createdSession && createdSession.sessionCode && attendanceType === 'QRCode') {
       const updateQR = () => {
         const ticks = getDotNetTicks();
-        // Backend formatı: SessionCode || ExpirationTicks
         const newContent = `${createdSession.sessionCode}||${ticks}`;
         setQrContent(newContent);
       };
-
-      updateQR(); // İlk hemen çalıştır
-      intervalId = setInterval(updateQR, 12000); // 12 saniyede bir yenile
+      updateQR(); 
+      intervalId = setInterval(updateQR, 12000); 
     }
-
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
   }, [createdSession, attendanceType]);
 
-
-  // 1. Sayfa Açılınca Dersleri Çek
+  // --- DERSLERİ ÇEKME VE GRUPLAMA (ÇAPRAZ DERS MANTIĞI) ---
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -71,11 +71,49 @@ const TeacherAttendance = () => {
         const response = await axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/my-courses', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        setCourses(response.data);
+
+        const rawCourses = response.data;
         
-        // İlk dersi varsayılan seç
-        if (response.data.length > 0) {
-          setSelectedCourseId(response.data[0].id);
+        // Ders kodundaki sayılara göre (Örn: 419) gruplama yapıyoruz
+        const grouped = {};
+        rawCourses.forEach(course => {
+          const match = course.courseCode.match(/\d+/);
+          const num = match ? match[0] : course.courseCode;
+
+          if (!grouped[num]) {
+            grouped[num] = {
+              ids: [course.id],
+              codes: [course.courseCode],
+              names: [course.courseName]
+            };
+          } else {
+            grouped[num].ids.push(course.id);
+            grouped[num].codes.push(course.courseCode);
+            grouped[num].names.push(course.courseName);
+          }
+        });
+
+        // Gruplanmış objeyi select-option için diziye çeviriyoruz
+        const displayCourses = Object.values(grouped).map(g => {
+          if (g.ids.length === 1) {
+            // Tekli ders (Örn: Sadece CMPE428)
+            return {
+              value: g.ids.join(','), // "1"
+              label: `${g.codes[0]} - ${g.names[0]}`
+            };
+          } else {
+            // Çapraz ders (Örn: CMPE419 ve BLGM419)
+            return {
+              value: g.ids.join(','), // "2,3"
+              label: `${g.codes.join(' / ')} - ${g.names[0]}` // "CMPE419 / BLGM419 - Mobile App Development"
+            };
+          }
+        });
+
+        setCourses(displayCourses);
+        
+        if (displayCourses.length > 0) {
+          setSelectedCourseIds(displayCourses[0].value); // İlk grubun ID(ler)ini seçili yap
         }
       } catch (err) {
         console.error("Dersler yüklenemedi", err);
@@ -86,26 +124,24 @@ const TeacherAttendance = () => {
     fetchCourses();
   }, []);
 
-  // Modal Açma
   const handleOpenModal = (title, type) => {
     setModalTitle(title);
     setAttendanceType(type);
     setCreatedSession(null); 
     setQrContent(""); 
-    setSelectedDate(new Date().toISOString().slice(0, 16));
+    setSelectedDateOnly(new Date().toISOString().slice(0, 10));
     setShowModal(true);
   };
 
-  // Modal Kapatma
   const handleCloseModal = () => {
     setShowModal(false);
     setSubmitting(false);
     setCreatedSession(null);
   };
 
-  // 2. YOKLAMA BAŞLATMA (POST İsteği)
+  // --- YOKLAMA BAŞLATMA ---
   const handleStartAttendance = async () => {
-    if (!selectedCourseId) {
+    if (!selectedCourseIds) {
       alert("Lütfen bir ders seçiniz!");
       return;
     }
@@ -114,28 +150,25 @@ const TeacherAttendance = () => {
       setSubmitting(true);
       const token = localStorage.getItem('jwtToken');
 
-      // --- DÜZELTME BURADA YAPILDI (BACKEND ENUM UYUMU) ---
-      // Backend: QrCode=1, Location=2, FaceScan=3
-      let methodEnum = 1; // Varsayılan 1 (QR)
+      let methodEnum = 1; 
       let requireFace = false;
 
-      if (attendanceType === 'QRCode') {
-        methodEnum = 1; // Backend: QrCode
-      } else if (attendanceType === 'Location') {
-        methodEnum = 2; // Backend: Location
-      } else if (attendanceType === 'FaceRecognition') {
-        methodEnum = 3; // Backend: FaceScan
-        requireFace = true; 
-      }
+      if (attendanceType === 'QRCode') { methodEnum = 1; } 
+      else if (attendanceType === 'Location') { methodEnum = 2; } 
+      else if (attendanceType === 'FaceRecognition') { methodEnum = 3; requireFace = true; }
 
-      // Backend DTO Formatı
+      const finalDateTime = `${selectedDateOnly}T${selectedPeriodTime}:00`;
+
+      // VİRGÜLLÜ METNİ ([2,3] GİBİ) SAYISAL DİZİYE ÇEVİRİYORUZ
+      const idArray = selectedCourseIds.split(',').map(id => parseInt(id));
+
       const payload = {
-        courseIds: [parseInt(selectedCourseId)], 
+        courseIds: idArray, // BURASI ARTIK [2, 3] GİBİ BİR DİZİ GİDİYOR
         method: methodEnum,                      
         requireFaceVerification: requireFace,    
         requireDeviceVerification: true,         
         radiusMeters: 50,                        
-        startTime: selectedDate                  
+        startTime: finalDateTime 
       };
 
       console.log("Giden Veri:", payload);
@@ -148,8 +181,6 @@ const TeacherAttendance = () => {
       });
 
       console.log("Başarılı:", response.data);
-      
-      // Başarılı olunca oturum bilgisini kaydet (Modal içeriği değişecek)
       setCreatedSession(response.data);
 
     } catch (err) {
@@ -174,7 +205,6 @@ const TeacherAttendance = () => {
         </div>
       </header>
 
-      {/* Kartlar */}
       <div className="attendance-cards-container">
         <div className="attendance-card card-blue" onClick={() => handleOpenModal('QR Kod ile Yoklama', 'QRCode')}>
           <div className="card-icon-box"><FaQrcode /></div>
@@ -195,17 +225,12 @@ const TeacherAttendance = () => {
         </div>
       </div>
 
-      {/* --- MODAL --- */}
       {showModal && (
         <div className="modal-overlay" onClick={handleCloseModal}>
-           {/* stopPropagation: Kutu içine tıklayınca kapanmasın */}
            <div className="modal-box" onClick={(e) => e.stopPropagation()}>
              
-             {/* --- SENARYO 1: OTURUM OLUŞTUYSA --- */}
              {createdSession ? (
                <div style={{ textAlign: 'center', padding: '10px' }}>
-                 
-                 {/* DURUM A: QR KOD İSE */}
                  {attendanceType === 'QRCode' ? (
                    <>
                      <h2 style={{ color: '#2e7d32', marginBottom: '10px' }}>Yoklama Başlatıldı!</h2>
@@ -225,7 +250,6 @@ const TeacherAttendance = () => {
                      </div>
                    </>
                  ) : (
-                   /* DURUM B: DİĞER YÖNTEMLER (YÜZ VEYA KONUM) */
                    <div style={{ padding: '30px 10px' }}>
                      <FaCheckCircle style={{ fontSize: '60px', color: '#4caf50', marginBottom: '20px' }} />
                      
@@ -234,7 +258,7 @@ const TeacherAttendance = () => {
                      </h2>
                      
                      <p style={{ color: '#555', marginBottom: '20px', fontSize: '16px' }}>
-                       Yoklama sistemi başarıyla devreye alındı. Öğrenciler giriş yapabilirler.
+                        Yoklama sistemi başarıyla devreye alındı. Öğrenciler giriş yapabilirler.
                      </p>
 
                      <div style={{ background: '#e8f5e9', padding: '15px', borderRadius: '8px', display: 'inline-block' }}>
@@ -250,13 +274,12 @@ const TeacherAttendance = () => {
                </div>
 
              ) : (
-               
-               /* --- SENARYO 2: BAŞLANGIÇ FORMU --- */
                <>
                  <h2 className="modal-title">{modalTitle}</h2>
                  
                  <div className="modal-body">
-                   {/* Ders Seçimi */}
+                   
+                   {/* 1. Ders Seçimi */}
                    <div className="form-group">
                      <label style={{display:'block', marginBottom:'5px', fontWeight:'bold', color:'#555'}}>Ders Seçimi</label>
                      {loadingCourses ? (
@@ -264,29 +287,49 @@ const TeacherAttendance = () => {
                      ) : (
                        <select 
                           className="course-select-input" 
-                          value={selectedCourseId} 
-                          onChange={(e) => setSelectedCourseId(e.target.value)}
+                          value={selectedCourseIds} 
+                          onChange={(e) => setSelectedCourseIds(e.target.value)}
                           style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #ccc', marginBottom: '15px' }}
                        >
                          {courses.length === 0 && <option value="">Ders bulunamadı</option>}
                          {courses.map(c => (
-                           <option key={c.id} value={c.id}>
-                             {c.courseCode} - {c.courseName}
+                           <option key={c.value} value={c.value}>
+                             {c.label}
                            </option>
                          ))}
                        </select>
                      )}
                    </div>
 
-                   {/* Tarih Seçimi */}
+                   {/* 2. Tarih Seçimi */}
                    <div className="form-group">
-                      <label style={{display:'block', marginBottom:'5px', fontWeight:'bold', color:'#555'}}>Başlangıç Tarihi ve Saati</label>
+                      <label style={{display:'flex', alignItems:'center', gap:'8px', marginBottom:'5px', fontWeight:'bold', color:'#555'}}>
+                         <FaCalendarAlt /> Tarih
+                      </label>
                       <input 
-                        type="datetime-local"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #ccc', marginBottom: '20px' }}
+                        type="date"
+                        value={selectedDateOnly}
+                        onChange={(e) => setSelectedDateOnly(e.target.value)}
+                        style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #ccc', marginBottom: '15px' }}
                       />
+                   </div>
+
+                   {/* 3. Ders Saati Seçimi */}
+                   <div className="form-group">
+                      <label style={{display:'flex', alignItems:'center', gap:'8px', marginBottom:'5px', fontWeight:'bold', color:'#555'}}>
+                         <FaClock /> Ders Saati
+                      </label>
+                      <select
+                        value={selectedPeriodTime}
+                        onChange={(e) => setSelectedPeriodTime(e.target.value)}
+                        style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #ccc', marginBottom: '20px' }}
+                      >
+                         {classPeriods.map(period => (
+                           <option key={period.id} value={period.value}>
+                             {period.label}
+                           </option>
+                         ))}
+                      </select>
                    </div>
                  </div>
 
@@ -306,7 +349,6 @@ const TeacherAttendance = () => {
                  </div>
                </>
              )}
-
            </div>
         </div>
       )}

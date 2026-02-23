@@ -1,69 +1,190 @@
-import React, { useState } from 'react';
-import { FaSignOutAlt, FaList, FaStopCircle, FaInfoCircle, FaCalendarAlt, FaClock, FaCalendarDay } from 'react-icons/fa';
+import React, { useState, useEffect } from 'react';
+import { FaSignOutAlt, FaList, FaStopCircle, FaInfoCircle, FaCalendarAlt, FaClock, FaCalendarDay, FaSpinner, FaHistory, FaBroadcastTower } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './TeacherReports.css';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+
 const TeacherReports = () => {
   const navigate = useNavigate();
-  // Hangi raporun detayının açık olduğunu tutan state (id tutar)
+  
+  // --- STATE TANIMLARI ---
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Detay Panel Kontrolü
   const [expandedReportId, setExpandedReportId] = useState(null);
+  const [sessionStudents, setSessionStudents] = useState([]); 
+  const [loadingStudents, setLoadingStudents] = useState(false);
 
-  // Sahte Rapor Verileri
-  const reports = [
-    {
-      id: 1,
-      date: '02.12.2025',
-      time: '12:30-13:20',
-      day: 'Sal',
-      courseCode: 'BLGM353',
-      courseName: 'Database Management Systems',
-      attended: 13,
-      total: 28,
-      status: 'active', // 'active' veya 'closed'
-      progressColor: '#ff9800' // Turuncu
-    },
-    {
-      id: 2,
-      date: '27.11.2025',
-      time: '08:30-09:20',
-      day: 'Per',
-      courseCode: 'BLGM371',
-      courseName: 'Algoritmaların Çözümlenmesi',
-      attended: 14,
-      total: 28,
-      status: 'closed',
-      progressColor: '#ff9800'
-    },
-    {
-      id: 3,
-      date: '25.11.2025',
-      time: '10:30-11:20',
-      day: 'Pzt',
-      courseCode: 'BLGM353',
-      courseName: 'Database Management Systems',
-      attended: 25,
-      total: 28,
-      status: 'closed',
-      progressColor: '#4caf50' // Yeşil
+  // 1. VERİLERİ ÇEK VE BİRLEŞTİR (Aktif + Geçmiş)
+  const fetchAllData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('jwtToken');
+      const config = { headers: { 'Authorization': `Bearer ${token}` } };
+
+      // İki isteği aynı anda atıyoruz (Performans için)
+      const [activeRes, historyRes] = await Promise.all([
+        axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/my-active-sessions', config),
+        axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/instructor/history/sessions', config)
+      ]);
+
+      // --- VERİ DÜZENLEME (NORMALİZASYON) ---
+      
+      // 1. Aktif Dersleri Düzenle
+      const activeData = activeRes.data.map(item => ({
+        sessionId: item.sessionId,
+        sessionCode: item.sessionCode,
+        startTime: item.startTime,
+        methodName: item.methodName,
+        courseNames: Array.isArray(item.courseNames) ? item.courseNames.join(', ') : item.courseNames,
+        isActive: true, // Frontend için bayrak: Bu ders CANLI
+        attendedCount: 0, 
+        totalStudents: 0
+      }));
+
+      // 2. Geçmiş Dersleri Düzenle
+      const historyData = historyRes.data.map(item => ({
+        sessionId: item.sessionId,
+        sessionCode: "KAPALI",
+        startTime: item.startTime,
+        methodName: item.method, 
+        courseNames: item.courseNames,
+        isActive: false, // Frontend için bayrak: Bu ders GEÇMİŞ
+        attendedCount: item.attendedCount,
+        totalStudents: item.totalStudents
+      }));
+
+      // 3. Birleştir ve Tarihe Göre Sırala (En Yeni En Üstte)
+      const combined = [...activeData, ...historyData].sort((a, b) => 
+        new Date(b.startTime) - new Date(a.startTime)
+      );
+
+      setReports(combined);
+
+    } catch (error) {
+      console.error("Veriler çekilemedi:", error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  // Sahte Öğrenci Listesi (Detay açılınca görünecek)
-  const students = [
-    { id: 101, name: 'ERDOĞAN KAAN CEYLAN', number: '142349', initials: 'EC', colorClass: 'avatar-blue' },
-    { id: 102, name: 'İLKER BARTIN', number: '20330651', initials: 'İB', colorClass: 'avatar-light' },
-    { id: 103, name: 'MURAT SERİN', number: '20450022', initials: 'MS', colorClass: 'avatar-light' },
-    { id: 104, name: 'AHMET YILMAZ', number: '20450023', initials: 'AY', colorClass: 'avatar-light' },
-    { id: 105, name: 'AYŞE DEMİR', number: '20450024', initials: 'AD', colorClass: 'avatar-light' },
-  ];
+  useEffect(() => {
+    fetchAllData();
+  }, []);
 
-  // Listeyi açıp kapatma fonksiyonu
-  const toggleExpand = (id) => {
-    if (expandedReportId === id) {
-      setExpandedReportId(null); // Zaten açıksa kapat
+  // 2. OTURUMU DURDURMA İŞLEMİ
+  const handleStopSession = async (sessionId) => {
+    const confirm = window.confirm("Bu yoklamayı kapatmak istediğinize emin misiniz? Öğrenciler artık giriş yapamayacak.");
+    if (!confirm) return;
+
+    try {
+      const token = localStorage.getItem('jwtToken');
+      // Backend: AttendanceController > EndSession
+      await axios.post(`https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/end/${sessionId}`, {}, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      // Başarılıysa sayfayı yenilemeden state'i güncelle
+      setReports(prevReports => 
+        prevReports.map(report => 
+          report.sessionId === sessionId ? { ...report, isActive: false } : report
+        )
+      );
+      
+      alert("✅ Yoklama başarıyla kapatıldı.");
+
+    } catch (error) {
+      alert("❌ İşlem başarısız: " + (error.response?.data?.message || error.message));
+    }
+  };
+
+  // 3. LİSTEYİ AÇ/KAPAT VE ÖĞRENCİLERİ ÇEK
+  const toggleExpand = async (sessionId) => {
+    if (expandedReportId === sessionId) {
+      setExpandedReportId(null); 
+      setSessionStudents([]);
     } else {
-      setExpandedReportId(id); // Değilse aç
+      setExpandedReportId(sessionId); 
+      setLoadingStudents(true);
+      try {
+        const token = localStorage.getItem('jwtToken');
+        // Backend: AttendanceController > GetFullClassList
+        const response = await axios.get(`https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/full-class-list/${sessionId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        setSessionStudents(response.data);
+      } catch (error) {
+        console.error("Öğrenci listesi alınamadı:", error);
+        alert("Liste yüklenemedi. Lütfen internet bağlantınızı kontrol edin.");
+      } finally {
+        setLoadingStudents(false);
+      }
     }
+  };
+
+  // 4. DURUM GÜNCELLEME (DAİRELERE TIKLAYINCA)
+  const handleStatusUpdate = async (studentId, newStatusString, newStatusInt) => {
+    // Eğer durum zaten aynıysa işlem yapma
+    const currentStudent = sessionStudents.find(s => s.studentId === studentId);
+    if (currentStudent && currentStudent.status === newStatusString) return;
+
+    // 1. Optimistic Update: Kullanıcı beklememesi için ekranda hemen rengi değiştir
+    setSessionStudents(prevStudents => 
+      prevStudents.map(student => 
+        student.studentId === studentId 
+          ? { ...student, status: newStatusString } 
+          : student
+      )
+    );
+
+    try {
+      const token = localStorage.getItem('jwtToken');
+      
+      // 2. Backend'e gönder
+      await axios.post('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/update-status', 
+        {
+          sessionId: expandedReportId,
+          studentId: studentId,
+          status: newStatusInt, // 1=Present, 2=Absent, 3=Excused
+          description: "Manuel Güncelleme"
+        }, 
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+
+    } catch (error) {
+      console.error("Güncelleme hatası:", error);
+      alert("Durum güncellenemedi!");
+      toggleExpand(expandedReportId); // Hata olursa listeyi eski haline getir
+    }
+  };
+
+  // --- YARDIMCI FORMAT FONKSİYONLARI ---
+  const formatDate = (dateString) => {
+    if(!dateString) return "-";
+    return new Date(dateString).toLocaleDateString('tr-TR');
+  };
+
+  const formatTime = (dateString) => {
+    if(!dateString) return "-";
+    return new Date(dateString).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getDayName = (dateString) => {
+    if(!dateString) return "-";
+    return new Date(dateString).toLocaleDateString('tr-TR', { weekday: 'short' });
+  };
+
+  const getAvatarColor = (name) => {
+    const colors = ['avatar-blue', 'avatar-green', 'avatar-orange', 'avatar-purple'];
+    const index = (name?.length || 0) % colors.length;
+    return colors[index];
+  };
+
+  const getInitials = (name) => {
+    if (!name) return "?";
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   };
 
   return (
@@ -77,106 +198,148 @@ const TeacherReports = () => {
       </header>
 
       <div className="reports-container">
-        <h3 className="page-label">Yoklama Raporları</h3>
+        <h3 className="page-label">Yoklama Geçmişi</h3>
 
-        {reports.map((report) => (
-          <div key={report.id} className="report-card-wrapper">
-            
-            {/* --- KARTIN ÜST KISMI (ÖZET) --- */}
-            <div className="report-summary">
-              
-              {/* Etiketler (Tarih, Saat, Gün) */}
-              <div className="tags-row">
-                <span className="tag tag-blue"><FaCalendarAlt /> {report.date}</span>
-                <span className="tag tag-green"><FaClock /> {report.time}</span>
-                <span className="tag tag-orange"><FaCalendarDay /> {report.day}</span>
-              </div>
-
-              {/* Ders Adı */}
-              <h3 className="report-course-title">
-                {report.courseCode} - {report.courseName}
-              </h3>
-
-              {/* Progress Bar ve Butonlar */}
-              <div className="progress-action-row">
-                <div className="progress-wrapper">
-                  <div className="progress-info">
-                    <span>Katılım</span>
-                    <span>{report.attended} / {report.total}</span>
-                  </div>
-                  <div className="progress-track">
-                    <div 
-                      className="progress-fill" 
-                      style={{ 
-                        width: `${(report.attended / report.total) * 100}%`,
-                        backgroundColor: report.progressColor 
-                      }}
-                    ></div>
-                  </div>
-                </div>
-
-                <div className="action-buttons">
-                  {/* Aktif ise Durdur butonu göster */}
-                  {report.status === 'active' ? (
-                    <button className="btn-stop">
-                      Durdur
-                    </button>
-                  ) : (
-                    <span className="status-text">Kapandı</span>
-                  )}
-
-                  <button 
-                    className={`btn-list ${expandedReportId === report.id ? 'active' : ''}`}
-                    onClick={() => toggleExpand(report.id)}
-                  >
-                    <FaList /> Liste
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* --- KARTIN ALT KISMI (DETAY LISTESI) --- */}
-            {expandedReportId === report.id && (
-              <div className="report-details-panel">
-                
-                {/* Mavi Bilgi Çubuğu */}
-                <div className="info-alert">
-                  <FaInfoCircle className="info-alert-icon" />
-                  <span>Öğrencilerin yoklama durumlarını işaretleyin: P (Katıldı), A (Katılmadı), E (Mazeretli)</span>
-                </div>
-
-                {/* Öğrenci Listesi */}
-                <div className="student-rows-container">
-                  {students.map((student) => (
-                    <div key={student.id} className="student-row-item">
-                      
-                      {/* Sol: Avatar ve İsim */}
-                      <div className="student-left">
-                        <div className={`student-avatar-box ${student.colorClass}`}>
-                          {student.initials}
-                        </div>
-                        <div className="student-text-info">
-                          <span className="s-name">{student.name}</span>
-                          <span className="s-no">{student.number}</span>
-                        </div>
-                      </div>
-
-                      {/* Sağ: P A E Butonları */}
-                      <div className="attendance-actions">
-                        <button className="circle-btn">P</button>
-                        <button className="circle-btn">A</button>
-                        <button className="circle-btn">E</button>
-                      </div>
-
-                    </div>
-                  ))}
-                </div>
-
-              </div>
-            )}
-
+        {loading ? (
+          <div style={{textAlign: 'center', padding: '50px', color: '#666'}}>
+            <FaSpinner className="fa-spin" size={30} /> 
+            <p>Veriler yükleniyor...</p>
           </div>
-        ))}
+        ) : reports.length === 0 ? (
+          <div className="empty-state">
+            Henüz hiç yoklama kaydı bulunmamaktadır.
+          </div>
+        ) : (
+          reports.map((report) => (
+            <div key={report.sessionId} className={`report-card-wrapper ${!report.isActive ? 'closed-session' : 'active-session-glow'}`}>
+              
+              {/* --- KARTIN ÜST KISMI (ÖZET) --- */}
+              <div className="report-summary">
+                
+                {/* Sol: Etiketler */}
+                <div className="tags-row">
+                  {report.isActive ? 
+                    <span className="tag tag-red-pulse"><FaBroadcastTower /> CANLI</span> :
+                    <span className="tag tag-gray"><FaHistory /> GEÇMİŞ</span>
+                  }
+                  <span className="tag tag-blue"><FaCalendarAlt /> {formatDate(report.startTime)}</span>
+                  <span className="tag tag-green"><FaClock /> {formatTime(report.startTime)}</span>
+                  <span className="tag tag-orange"><FaCalendarDay /> {getDayName(report.startTime)}</span>
+                  
+                  <span className="tag method-tag">
+                    {report.methodName === 'QrCode' ? 'QR Kod' : report.methodName === 'Location' ? 'Konum' : 'Yüz Tanıma'}
+                  </span>
+                </div>
+
+                {/* Orta: Ders Adı */}
+                <h3 className="report-course-title">
+                  {report.courseNames || "Ders Adı Yok"}
+                </h3>
+                
+                {/* İstatistik */}
+                {!report.isActive && (
+                    <div className="mini-stats">
+                        <span style={{fontSize:'12px', color:'#666'}}>Katılım: <b>{report.attendedCount}/{report.totalStudents}</b></span>
+                    </div>
+                )}
+
+                {/* Sağ: Butonlar */}
+                <div className="progress-action-row">
+                  <div style={{flex: 1}}></div> 
+
+                  <div className="action-buttons">
+                    {report.isActive ? (
+                      <button className="btn-stop" onClick={() => handleStopSession(report.sessionId)}>
+                        <FaStopCircle /> Durdur
+                      </button>
+                    ) : (
+                      <button className="btn-closed" disabled>Kapandı</button>
+                    )}
+
+                    <button 
+                      className={`btn-list ${expandedReportId === report.sessionId ? 'active' : ''}`}
+                      onClick={() => toggleExpand(report.sessionId)}
+                    >
+                      <FaList /> {expandedReportId === report.sessionId ? 'Gizle' : 'Liste'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* --- KARTIN ALT KISMI (DETAY) --- */}
+              {expandedReportId === report.sessionId && (
+                <div className="report-details-panel">
+                  
+                  <div className="info-alert">
+                    <FaInfoCircle className="info-alert-icon" />
+                    <span><b>P:</b> Katıldı (Present) | <b>A:</b> Katılmadı (Absent) | <b>E:</b> Mazeretli (Excused)</span>
+                  </div>
+
+                  {loadingStudents ? (
+                    <div style={{padding: '30px', textAlign:'center', color: '#666'}}>
+                       <FaSpinner className="fa-spin" /> Liste yükleniyor...
+                    </div>
+                  ) : (
+                    <div className="student-rows-container">
+                      {sessionStudents.length === 0 ? (
+                         <p style={{padding:'15px', textAlign:'center', color:'#999'}}>Bu derse kayıtlı öğrenci bulunamadı.</p>
+                      ) : (
+                        sessionStudents.map((student) => (
+                          <div key={student.studentId} className="student-row-item">
+                            
+                            {/* Sol: Avatar ve İsim */}
+                            <div className="student-left">
+                              <div className={`student-avatar-box ${getAvatarColor(student.studentName)}`}>
+                                {getInitials(student.studentName)}
+                              </div>
+                              <div className="student-text-info">
+                                <span className="s-name">{student.studentName}</span>
+                                <span className="s-no">{student.schoolNumber}</span>
+                              </div>
+                            </div>
+
+                            {/* Sağ: 3 YUVARLAK ETKİLEŞİMLİ BUTON */}
+                            <div className="attendance-actions">
+                              
+                              {/* P (Katıldı) - 1 */}
+                              <div 
+                                className={`circle-indicator ${student.status === 'Present' ? 'circle-green' : 'circle-inactive'}`}
+                                onClick={() => handleStatusUpdate(student.studentId, 'Present', 1)}
+                                title="Katıldı Yap"
+                              >
+                                P
+                              </div>
+
+                              {/* A (Yok) - 2 */}
+                              <div 
+                                className={`circle-indicator ${student.status === 'Absent' || student.status === 'NotMarked' ? 'circle-red' : 'circle-inactive'}`}
+                                onClick={() => handleStatusUpdate(student.studentId, 'Absent', 2)}
+                                title="Yok Yaz"
+                              >
+                                A
+                              </div>
+
+                              {/* E (İzinli) - 3 */}
+                              <div 
+                                className={`circle-indicator ${student.status === 'Excused' ? 'circle-yellow' : 'circle-inactive'}`}
+                                onClick={() => handleStatusUpdate(student.studentId, 'Excused', 3)}
+                                title="Mazeretli Yap"
+                              >
+                                E
+                              </div>
+
+                            </div>
+
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))
+        )}
       </div>
     </DashboardLayout>
   );
