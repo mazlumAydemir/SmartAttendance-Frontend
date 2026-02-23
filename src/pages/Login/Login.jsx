@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa'; // FaEnvelope eklendi
+import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa'; 
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './Login.css';
 import AuthLayout from '../../layouts/AuthLayout';
+
+// 1. ADIM: RESMİ KODA IMPORT EDİYORUZ (Yolunu klasör yapına göre ayarladık)
+import dauLogo from '../../assets/daulogo.jpeg';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -30,10 +33,10 @@ const Login = () => {
     try {
       setLoading(true);
 
-      // 2. API'ye İstek Atma (Backend'in beklediği format: LoginDto)
+      // 2. API'ye İstek Atma
       const response = await axios.post('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/auth/login', {
-        email: email,      // Backend'deki 'Email' alanı ile eşleşmeli
-        password: password // Backend'deki 'Password' alanı ile eşleşmeli
+        email: email,      
+        password: password 
       });
 
       const data = response.data;
@@ -42,22 +45,19 @@ const Login = () => {
       // 3. Token ve Bilgileri Kaydetme
       if (data.token) {
         localStorage.setItem('jwtToken', data.token);
-        localStorage.setItem('userRole', data.role); // Rolü de saklayalım (opsiyonel)
-        localStorage.setItem('fullName', data.fullName); // İsim bilgisini saklayalım
+        localStorage.setItem('userRole', data.role);
+        localStorage.setItem('fullName', data.fullName);
       }
 
       // 4. Role Göre Yönlendirme
-      // Backend'den 'Teacher', 'Student', 'Admin' gibi string dönüyor.
       const userRole = data.role ? data.role.toLowerCase() : "";
 
       if (userRole.includes('admin')) {
         navigate('/admin/home');
       } 
-      // Backend 'Teacher' veya 'Academician' dönebilir, ikisini de kapsayalım
       else if (userRole.includes('instructor') || userRole.includes('.') || userRole.includes('.')) {
         navigate('/teacher/home');
       } 
-      // Backend 'Student' dönebilir
       else if (userRole.includes('student') || userRole.includes('ogr') || userRole.includes('öğrenci')) {
         navigate('/student/home');
       } 
@@ -68,9 +68,7 @@ const Login = () => {
     } catch (err) {
       console.error("Login Hatası:", err);
       
-      // Backend'den gelen özel hata mesajını göstermeye çalışalım
       if (err.response && err.response.data) {
-        // Backend throw new Exception("mesaj") fırlattıysa burada yakalayabiliriz
         setError(typeof err.response.data === 'string' ? err.response.data : "Giriş bilgileri hatalı.");
       } else if (err.message) {
         setError(err.message);
@@ -86,8 +84,10 @@ const Login = () => {
     <AuthLayout>
       <div className="login-card">
         <div className="header-section">
-          {/* Logo Yolu */}
-          <img src="/src/assets/daulogo.jpeg" alt="DAÜ Logo" className="logo" />
+          
+          {/* 2. ADIM: IMPORT ETTİĞİMİZ RESMİ BURADA KULLANIYORUZ */}
+          <img src={dauLogo} alt="DAÜ Logo" className="logo" />
+          
           <h1 className="title">Doğu Akdeniz Üniversitesi</h1>
           <h2 className="subtitle">Eastern Mediterranean University</h2>
         </div>
@@ -104,7 +104,7 @@ const Login = () => {
           {/* E-posta Alanı */}
           <div className="input-group">
             <div className="input-wrapper">
-              <FaEnvelope className="input-icon" /> {/* Zarf ikonu */}
+              <FaEnvelope className="input-icon" />
               <input 
                 type="email" 
                 className="form-input" 
