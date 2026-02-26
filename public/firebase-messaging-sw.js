@@ -25,8 +25,8 @@ messaging.onBackgroundMessage((payload) => {
 
   return self.registration.showNotification(title, {
     body: body,
-    icon: `${baseUrl}/dau.png`,
-    badge: `${baseUrl}/dau.png`,
+    icon: `${baseUrl}/daulogo.jpeg`,
+    badge: `${baseUrl}/daulogo.jpeg`,
     tag: 'attendance-notification',
     vibrate: [200, 100, 200],
     requireInteraction: true,

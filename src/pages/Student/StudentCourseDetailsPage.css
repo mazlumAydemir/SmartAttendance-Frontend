@@ -132,3 +132,62 @@
   background: #fff;
   border-radius: 10px;
 }
+
+/* ========================================================== */
+/* MOBİL UYUM (TELEFONLAR İÇİN) - YENİ EKLENEN KISIM          */
+/* ========================================================== */
+@media (max-width: 768px) {
+  .details-container {
+    padding: 10px;
+  }
+
+  .summary-card {
+    flex-direction: column;
+    align-items: stretch; /* Kutuları ekranın genişliğine yay */
+    padding: 20px 15px;
+    gap: 15px;
+  }
+
+  .course-header {
+    text-align: center; /* Mobilde başlığı ortala */
+  }
+
+  .course-header h2 {
+    font-size: 20px;
+  }
+
+  /* 4 Kutuyu yan yana sıkıştırmak yerine 2x2 Izgara (Grid) Yap */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* 2 Sütun */
+    gap: 10px;
+    width: 100%;
+  }
+
+  .stat-box {
+    min-width: auto; /* Sabit genişliği iptal et */
+    padding: 12px;
+  }
+
+  .stat-number {
+    font-size: 18px;
+  }
+
+  /* Geçmiş Liste Kartlarının Mobilde Sığması İçin */
+  .history-item {
+    padding: 15px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .item-left {
+    gap: 15px;
+  }
+
+  .item-right {
+    align-self: flex-end; /* Etiketi sağ alta daya */
+    width: 100%;
+    text-align: right;
+  }
+}

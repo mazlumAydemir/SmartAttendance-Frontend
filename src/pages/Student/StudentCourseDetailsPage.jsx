@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { FaSpinner } from 'react-icons/fa'; // FaArrowLeft silindi
+import { FaSpinner } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
 
 import "./StudentCourseDetailsPage.css";
+
 const StudentCourseDetailsPage = () => {
   const { courseId } = useParams();
-  // const navigate = useNavigate(); // Artık kullanılmıyor (Buton silindiği için)
   
   const [history, setHistory] = useState([]);
   const [courseInfo, setCourseInfo] = useState({ name: '', code: '' });
@@ -73,9 +73,6 @@ const StudentCourseDetailsPage = () => {
   return (
     <DashboardLayout role="student">
       <div className="details-container">
-        
-        {/* --- DERSLERE DÖN BUTONU KALDIRILDI --- */}
-
         {loading ? (
           <div style={{ textAlign: 'center', padding: '50px' }}>
             <FaSpinner className="spinner-animation" style={{ fontSize: '30px', color: '#007bff' }} />
@@ -131,7 +128,6 @@ const StudentCourseDetailsPage = () => {
                           <h4>{date.full}</h4>
                           <p>
                             Saat: <strong>{date.time}</strong> • Yöntem: {item.method}
-                            {/* --- DESCRIPTION (MANUEL GÜNCELLEME) YAZISI KALDIRILDI --- */}
                           </p>
                         </div>
                       </div>
