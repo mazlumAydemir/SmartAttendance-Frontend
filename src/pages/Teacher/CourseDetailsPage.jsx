@@ -19,17 +19,19 @@ const CourseDetailsPage = () => {
   
   const [pastSessions, setPastSessions] = useState([]);
   const [studentStats, setStudentStats] = useState([]);
+  
+  const [allUsers, setAllUsers] = useState([]);
 
-  // --- AYARLAR STATE (Sayfa Altı İçin) ---
+  // --- AYARLAR STATE ---
   const [settings, setSettings] = useState({
     isAutoAttendanceEnabled: false,
-    defaultMethod: 1, // 1:QRCode, 2:Location, 3:FaceScan
+    defaultMethod: 1, 
     defaultDurationMinutes: 30,
     defaultRadiusMeters: 50
   });
-  const [settingsLoading, setSettingsLoading] = useState(false); // Kaydederken dönsün
+  const [settingsLoading, setSettingsLoading] = useState(false);
 
-  // --- MODAL STATE (Detay Popup) ---
+  // --- MODAL STATE ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSessionStudents, setSelectedSessionStudents] = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
@@ -46,6 +48,14 @@ const CourseDetailsPage = () => {
       const token = localStorage.getItem('jwtToken');
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
+      // 0. TÜM KULLANICILARI ÇEK
+      try {
+        const usersRes = await axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Auth/all-users', config);
+        setAllUsers(usersRes.data);
+      } catch (e) {
+        console.warn("Tüm kullanıcılar çekilemedi.");
+      }
+
       // 1. DERS ADINI BUL
       const coursesRes = await axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/my-courses', config);
       const currentCourse = coursesRes.data.find(c => c.id.toString() === courseId);
@@ -57,25 +67,56 @@ const CourseDetailsPage = () => {
         targetCourseName = currentCourse.courseCode;
       }
 
-      // 2. GEÇMİŞ OTURUMLARI ÇEK
-      const sessionRes = await axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/instructor/history/sessions', config);
-      const filteredSessions = sessionRes.data.filter(session => 
-        (targetCourseName && session.courseNames.includes(targetCourseName)) || 
-        session.sessionId.toString() === courseId
-      );
-      setPastSessions(filteredSessions);
-
-      // 3. ÖĞRENCİ İSTATİSTİKLERİ
+      // 2. ÖĞRENCİ İSTATİSTİKLERİ
+      let validStudentIds = [];
       try {
         const statsRes = await axios.get(`https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/instructor/course-stats/${courseId}`, config);
         setStudentStats(statsRes.data);
+        validStudentIds = statsRes.data.map(s => s.studentId);
       } catch (e) { console.warn("İstatistik çekilemedi."); }
 
-      // 4. AYARLARI ÇEK (YENİ: Sayfa yüklenirken çekiyoruz)
+      // 3. GEÇMİŞ OTURUMLARI ÇEK
+      const sessionRes = await axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/instructor/history/sessions', config);
+      
+      // 🚀 HATA BURADA ÇÖZÜLDÜ: sessionId == courseId mantığı SİLİNDİ! 
+      // Artık "Kesin ve sadece" ders isminin virgülle ayrılmış listede olmasına bakıyoruz.
+      const filteredSessions = sessionRes.data.filter(session => {
+        if (!targetCourseName || !session.courseNames) return false;
+        
+        // "CMPE419, BLGM419" gibi gelen yazıyı diziye çevir: ["CMPE419", "BLGM419"]
+        const sessionCourseList = session.courseNames.split(',').map(name => name.trim());
+        
+        // Eğer bu dizi içinde bizim bulunduğumuz sayfanın ders kodu varsa kabul et.
+        return sessionCourseList.includes(targetCourseName);
+      });
+
+      // 4. İSTATİSTİKLERİ SADECE BU DERS İÇİN HESAPLA
+      const sessionsWithExactStats = await Promise.all(filteredSessions.map(async (session) => {
+        try {
+          const detailRes = await axios.get(`https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/instructor/history/session-details/${session.sessionId}`, config);
+          
+          const courseStudentsInSession = detailRes.data.filter(student => validStudentIds.includes(student.studentId));
+
+          const exactTotal = validStudentIds.length;
+          const exactAttended = courseStudentsInSession.filter(s => s.status === 'Present').length;
+
+          return {
+            ...session,
+            exactTotal: exactTotal,
+            exactAttended: exactAttended
+          };
+        } catch (err) {
+          return { ...session, exactTotal: validStudentIds.length, exactAttended: 0 };
+        }
+      }));
+
+      setPastSessions(sessionsWithExactStats);
+
+      // 5. AYARLARI ÇEK
       try {
         const settingsRes = await axios.get(`https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/instructor/course-settings/${courseId}`, config);
         setSettings(settingsRes.data);
-      } catch (e) { console.warn("Ayarlar çekilemedi (Varsayılanlar kullanılıyor)."); }
+      } catch (e) { console.warn("Ayarlar çekilemedi."); }
 
     } catch (err) {
       console.error("Veri hatası:", err);
@@ -84,7 +125,6 @@ const CourseDetailsPage = () => {
     }
   };
 
-  // --- AYARLARI KAYDET ---
   const saveSettings = async () => {
     setSettingsLoading(true);
     try {
@@ -96,17 +136,15 @@ const CourseDetailsPage = () => {
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
       alert("✅ Ayarlar başarıyla güncellendi!");
     } catch (err) {
-      console.error("Kaydetme hatası:", err);
       alert("❌ Ayarlar kaydedilemedi.");
     } finally {
       setSettingsLoading(false);
     }
   };
 
-  // --- MEVCUT MODAL İŞLEMLERİ ---
+  // --- MODALI AÇ VE ÖĞRENCİLERİ FİLTRELE ---
   const openAttendanceModal = async (session) => {
     setSelectedSessionInfo(session);
     setIsModalOpen(true);
@@ -116,7 +154,11 @@ const CourseDetailsPage = () => {
       const response = await axios.get(`https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/instructor/history/session-details/${session.sessionId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setSelectedSessionStudents(response.data);
+
+      const validStudentIds = studentStats.map(s => s.studentId);
+      const filteredModalStudents = response.data.filter(student => validStudentIds.includes(student.studentId));
+
+      setSelectedSessionStudents(filteredModalStudents);
     } catch (err) { console.error(err); } 
     finally { setModalLoading(false); }
   };
@@ -139,7 +181,6 @@ const CourseDetailsPage = () => {
     } catch (err) { alert("Hata: Güncellenemedi."); }
   };
 
-  // Kart Hesaplamaları (Senin istediğin versiyon)
   const getSessionStats = () => {
     if (!selectedSessionStudents) return { present: 0, absent: 0, excused: 0 };
     return {
@@ -150,11 +191,18 @@ const CourseDetailsPage = () => {
   };
   const sessionStats = getSessionStats();
 
+  const resolveSchoolNumber = (studentId, currentNumber) => {
+    if (currentNumber && currentNumber !== "-" && currentNumber !== "No Number" && currentNumber !== "") {
+      return currentNumber;
+    }
+    const foundUser = allUsers.find(u => u.id === studentId);
+    return foundUser?.schoolNumber ? foundUser.schoolNumber : "-";
+  };
+
   return (
     <DashboardLayout role="teacher">
       <div className="course-details-container">
         
-        {/* 1. Başlık Kartı */}
         <div className="course-header-card">
             <div className="header-icon-wrapper">
               <FaChalkboardTeacher /> 
@@ -171,7 +219,6 @@ const CourseDetailsPage = () => {
           <div style={{ textAlign: 'center', padding: '50px' }}><FaSpinner className="spinner-animation" /> Yükleniyor...</div>
         ) : (
           <>
-            {/* 2. Orta Kısım: Sınıf Listesi */}
             <div className="student-list-card">
               <div className="list-header">
                 <FaUserGraduate style={{ color: '#555' }} />
@@ -194,7 +241,7 @@ const CourseDetailsPage = () => {
                       studentStats.map((student) => (
                         <tr key={student.studentId}>
                           <td style={{ fontWeight: 'bold' }}>{student.studentName}</td>
-                          <td style={{ color: '#666' }}>{student.schoolNumber}</td>
+                          <td style={{ color: '#666' }}>{resolveSchoolNumber(student.studentId, student.schoolNumber)}</td>
                           <td><strong>{student.attendedSessions}</strong> <span style={{ color: '#999' }}>/ {student.totalSessions} Ders</span></td>
                           <td style={{ width: '35%' }}>
                             <div className="progress-wrapper" style={{ marginBottom: 0 }}>
@@ -215,7 +262,6 @@ const CourseDetailsPage = () => {
               </div>
             </div>
 
-            {/* 3. Alt Kısım: Geçmiş Kartlar */}
             <div className="section-title">
                <FaHistory style={{ color: '#555' }} />
                <h3 style={{ margin: 0, fontSize: '18px' }}>Geçmiş Yoklamalar</h3>
@@ -226,10 +272,9 @@ const CourseDetailsPage = () => {
             ) : (
               <div className="sessions-grid">
                 {pastSessions.map((session) => {
-                  const rawTotal = session.totalStudents !== undefined ? session.totalStudents : session.TotalStudents;
-                  const rawAttended = session.attendedCount !== undefined ? session.attendedCount : session.AttendedCount;
-                  const total = Number(rawTotal) || 0;
-                  const attended = Number(rawAttended) || 0;
+                  
+                  const total = session.exactTotal || 0;
+                  const attended = session.exactAttended || 0;
                   
                   let percentage = 0;
                   if (total > 0) percentage = Math.round((attended / total) * 100);
@@ -245,6 +290,11 @@ const CourseDetailsPage = () => {
                         <FaCalendarAlt className="calendar-icon" />
                         <span>{new Date(session.startTime).toLocaleDateString('tr-TR')}</span>
                       </div>
+                      
+                      <div style={{fontSize: '12px', color:'#777', marginBottom:'10px', fontWeight:'bold'}}>
+                        {courseCode}
+                      </div>
+
                       <div className="attendance-text-row">
                          <span className="attendance-label">Katılım Durumu</span>
                          <span className="attendance-value" style={{ color: barColor }}>Var: {attended} / {total}</span>
@@ -260,7 +310,6 @@ const CourseDetailsPage = () => {
               </div>
             )}
 
-            {/* 4. YENİ BÖLÜM: OTOMATİK YOKLAMA AYARLARI (EN ALTTA) */}
             <div className="settings-section">
               <div className="section-title">
                  <FaCog style={{ color: '#555' }} />
@@ -274,8 +323,6 @@ const CourseDetailsPage = () => {
                 </div>
                 
                 <div className="settings-content">
-                  
-                  {/* Toggle Switch */}
                   <div className="toggle-row">
                     <div className="toggle-info">
                       <h4>Otomatik Yoklamayı Etkinleştir</h4>
@@ -291,9 +338,7 @@ const CourseDetailsPage = () => {
                     </label>
                   </div>
 
-                  {/* Form Elemanları (Grid) */}
                   <div className={`settings-grid ${!settings.isAutoAttendanceEnabled ? 'disabled-area' : ''}`}>
-                    
                     <div className="input-group">
                       <label>Varsayılan Yöntem</label>
                       <select 
@@ -324,10 +369,9 @@ const CourseDetailsPage = () => {
                         value={settings.defaultRadiusMeters || 50}
                         onChange={(e) => setSettings({...settings, defaultRadiusMeters: parseInt(e.target.value)})}
                         className="form-control"
-                        disabled={parseInt(settings.defaultMethod) === 1} // QR'da kapalı olsun
+                        disabled={parseInt(settings.defaultMethod) === 1}
                       />
                     </div>
-
                   </div>
 
                   <button 
@@ -346,7 +390,6 @@ const CourseDetailsPage = () => {
           </>
         )}
 
-        {/* 5. MODAL (Değişmedi) */}
         {isModalOpen && (
           <div className="modal-overlay">
             <div className="modal-content">
@@ -364,18 +407,25 @@ const CourseDetailsPage = () => {
                     </div>
                     <table className="student-table">
                        <tbody>
-                        {selectedSessionStudents.map((student, idx) => (
-                          <tr key={idx}>
-                            <td><div style={{ fontWeight: 'bold' }}>{student.studentName}</div><small style={{ color: '#999' }}>{student.schoolNumber}</small></td>
-                            <td>
-                              <div className="action-buttons">
-                                <div className="status-btn" onClick={() => handleStatusChange(student.studentId, 'Present')} style={{ backgroundColor: student.status === 'Present' ? '#4caf50' : '#f0f0f0', color: student.status === 'Present' ? '#fff' : '#ccc' }}><FaCheck /></div>
-                                <div className="status-btn" onClick={() => handleStatusChange(student.studentId, 'Absent')} style={{ backgroundColor: (student.status === 'Absent' || student.status === 'NotMarked') ? '#f44336' : '#f0f0f0', color: (student.status === 'Absent' || student.status === 'NotMarked') ? '#fff' : '#ccc' }}><FaCross /></div>
-                                <div className="status-btn" onClick={() => handleStatusChange(student.studentId, 'Excused')} style={{ backgroundColor: student.status === 'Excused' ? '#ff9800' : '#f0f0f0', color: student.status === 'Excused' ? '#fff' : '#ccc' }}><FaMinus /></div>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                        {selectedSessionStudents.length === 0 ? (
+                            <tr><td colSpan="2" style={{ padding: '20px', textAlign: 'center', color: '#999' }}>Bu dersin öğrencisi bu oturumda bulunmuyor.</td></tr>
+                        ) : (
+                          selectedSessionStudents.map((student, idx) => (
+                            <tr key={idx}>
+                              <td>
+                                 <div style={{ fontWeight: 'bold' }}>{student.studentName}</div>
+                                 <small style={{ color: '#999' }}>{resolveSchoolNumber(student.studentId, student.schoolNumber)}</small>
+                              </td>
+                              <td>
+                                <div className="action-buttons">
+                                  <div className="status-btn" onClick={() => handleStatusChange(student.studentId, 'Present')} style={{ backgroundColor: student.status === 'Present' ? '#4caf50' : '#f0f0f0', color: student.status === 'Present' ? '#fff' : '#ccc' }}><FaCheck /></div>
+                                  <div className="status-btn" onClick={() => handleStatusChange(student.studentId, 'Absent')} style={{ backgroundColor: (student.status === 'Absent' || student.status === 'NotMarked') ? '#f44336' : '#f0f0f0', color: (student.status === 'Absent' || student.status === 'NotMarked') ? '#fff' : '#ccc' }}><FaCross /></div>
+                                  <div className="status-btn" onClick={() => handleStatusChange(student.studentId, 'Excused')} style={{ backgroundColor: student.status === 'Excused' ? '#ff9800' : '#f0f0f0', color: student.status === 'Excused' ? '#fff' : '#ccc' }}><FaMinus /></div>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
                        </tbody>
                     </table>
                   </>
