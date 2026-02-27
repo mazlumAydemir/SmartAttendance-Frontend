@@ -4,7 +4,7 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import './TeacherReports.css';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-
+import * as signalR from '@microsoft/signalr';
 const TeacherReports = () => {
   const navigate = useNavigate();
   
@@ -16,6 +16,7 @@ const TeacherReports = () => {
   const [expandedReportId, setExpandedReportId] = useState(null);
   const [sessionStudents, setSessionStudents] = useState([]); 
   const [loadingStudents, setLoadingStudents] = useState(false);
+  const [hubConnection, setHubConnection] = useState(null);
 
   // 1. VERİLERİ ÇEK VE BİRLEŞTİR (Aktif + Geçmiş)
   const fetchAllData = async () => {
@@ -99,7 +100,74 @@ const TeacherReports = () => {
       alert("❌ İşlem başarısız: " + (error.response?.data?.message || error.message));
     }
   };
+// =========================================================
+  // 🚀 SIGNALR 1. AŞAMA: ANA BAĞLANTIYI KUR
+  // =========================================================
+  useEffect(() => {
+    const token = localStorage.getItem('jwtToken');
+    if (!token) return;
 
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl("https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/attendanceHub", {
+        accessTokenFactory: () => token
+      })
+      .withAutomaticReconnect()
+      .build();
+
+    connection.start()
+      .then(() => {
+        console.log("[SignalR] Hoca bağlantısı kuruldu!");
+        setHubConnection(connection);
+
+        // Başka bir yerden ders kapatılırsa listeyi güncelle
+        connection.on("SessionEndedGlobal", (sessionId) => {
+          setReports(prev => prev.map(r => r.sessionId === sessionId ? { ...r, isActive: false } : r));
+        });
+      })
+      .catch(err => console.error("[SignalR] Hoca Bağlantı Hatası:", err));
+
+    return () => connection.stop();
+  }, []);
+
+  // =========================================================
+  // 🚀 SIGNALR 2. AŞAMA: ODAYA GİR VE CANLI YOKLAMAYI İZLE
+  // =========================================================
+  useEffect(() => {
+    // Eğer SignalR bağlıysa VE hoca bir dersin detayını açtıysa (Liste butonuna bastıysa)
+    if (hubConnection && expandedReportId) {
+      
+      // 1. Odaya Katıl
+      hubConnection.invoke("JoinSessionGroup", expandedReportId.toString())
+        .catch(err => console.error("Odaya girilemedi:", err));
+
+      console.log(`[SignalR] ${expandedReportId} numaralı dersin odasına girildi. Canlı yoklama izleniyor...`);
+
+      // 2. Öğrenci katıldığında tetiklenecek fonksiyon
+      const handleStudentAttended = (data) => {
+        console.log(`[SignalR] Öğrenci Katıldı! ID: ${data.studentId}, Durum: ${data.status}`);
+        
+        // Listede o öğrenciyi bul ve rengini anında değiştir!
+        setSessionStudents(prevStudents => 
+          prevStudents.map(student => 
+            student.studentId === data.studentId 
+              ? { ...student, status: data.status } 
+              : student
+          )
+        );
+      };
+
+      // Dinleyiciyi başlat
+      hubConnection.on("StudentAttended", handleStudentAttended);
+
+      // 3. Cleanup: Hoca listeyi kapattığında odadan çık ve dinlemeyi bırak
+      return () => {
+        hubConnection.off("StudentAttended", handleStudentAttended);
+        hubConnection.invoke("LeaveSessionGroup", expandedReportId.toString())
+          .catch(err => console.error("Odadan çıkılamadı:", err));
+        console.log(`[SignalR] ${expandedReportId} numaralı odadan çıkıldı.`);
+      };
+    }
+  }, [hubConnection, expandedReportId]);
   // 3. LİSTEYİ AÇ/KAPAT VE ÖĞRENCİLERİ ÇEK
   const toggleExpand = async (sessionId) => {
     if (expandedReportId === sessionId) {

@@ -7,7 +7,7 @@ import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import axios from 'axios';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './StudentActiveAttendance.css';
-
+import * as signalR from '@microsoft/signalr';
 const StudentActiveAttendance = () => {
   const navigate = useNavigate();
   const webcamRef = useRef(null);
@@ -113,7 +113,44 @@ const StudentActiveAttendance = () => {
         setFetchingSessions(false);
       }
     };
+// =========================================================
+  // 🚀 SIGNALR: ÖĞRENCİ CANLI DİNLEME (SAYFA YENİLEMEDEN DERS DÜŞMESİ)
+  // =========================================================
+  useEffect(() => {
+    const token = localStorage.getItem('jwtToken');
+    if (!token) return;
 
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl("https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/attendanceHub", {
+        accessTokenFactory: () => token
+      })
+      .withAutomaticReconnect()
+      .build();
+
+    connection.start()
+      .then(() => {
+        console.log("[SignalR] Öğrenci bağlantısı kuruldu! Canlı dersler dinleniyor...");
+
+        // Hoca yeni ders başlattığında
+        connection.on("SessionStarted", () => {
+          console.log("[SignalR] Yeni bir ders açıldı! Liste güncelleniyor...");
+          // Mevcut fonksiyonunu çağırıp listeyi yeniliyoruz
+          // (Eğer ESLint kızarsa fetchAllActiveSessions'ı useEffect dışına/içine alabilirsin)
+          window.location.reload(); // En garanti ve hızlı yöntem: Arka planda listeyi tazeletmek istersen fetchAllActiveSessions() yazabilirsin.
+        });
+
+        // Hoca dersi bitirdiğinde
+        connection.on("SessionEndedGlobal", (sessionId) => {
+          console.log(`[SignalR] ${sessionId} numaralı ders kapandı.`);
+          setActiveSessions(prev => prev.filter(s => s.sessionId !== sessionId));
+        });
+      })
+      .catch(err => console.error("[SignalR] Bağlantı Hatası:", err));
+
+    return () => {
+      connection.stop();
+    };
+  }, []);
     getDeviceFingerprint();
     getLocation();
     fetchAllActiveSessions();
