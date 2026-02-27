@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { FaSignOutAlt, FaQrcode, FaSmile, FaMapMarkerAlt, FaTimes, FaSpinner, FaCheckCircle, FaExclamationTriangle, FaCamera, FaClock } from 'react-icons/fa';
+import { FaSignOutAlt, FaQrcode, FaSmile, FaMapMarkerAlt, FaTimes, FaSpinner, FaCheckCircle, FaCamera, FaClock } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import Webcam from "react-webcam";
 import jsQR from "jsqr";
@@ -8,6 +8,7 @@ import axios from 'axios';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './StudentActiveAttendance.css';
 import * as signalR from '@microsoft/signalr';
+
 const StudentActiveAttendance = () => {
   const navigate = useNavigate();
   const webcamRef = useRef(null);
@@ -31,7 +32,50 @@ const StudentActiveAttendance = () => {
   const [cameraLoading, setCameraLoading] = useState(true);
   const [scanResult, setScanResult] = useState(null); 
 
-  // --- 1. BAŞLANGIÇ: CİHAZ ID, KONUM VE LİSTE ÇEKME ---
+  // 1. VERİ ÇEKME FONKSİYONU (Dışarıya alındı ki SignalR çağırabilsin)
+  const fetchAllActiveSessions = useCallback(async () => {
+    try {
+      setFetchingSessions(true);
+      const token = localStorage.getItem('jwtToken');
+      if (!token) return;
+
+      const config = { headers: { 'Authorization': `Bearer ${token}` } };
+      
+      const [resQR, resLoc, resFace, resMyCourses] = await Promise.all([
+        axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/student/active-sessions/qr', config),
+        axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/student/active-sessions/location', config),
+        axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/student/active-sessions/face', config),
+        axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/student/my-courses', config)
+      ]);
+
+      const myCoursesList = resMyCourses.data;
+
+      const formatSession = (item, methodType, enumValue) => {
+          const sessionCodes = item.courseCode ? item.courseCode.split(',').map(s => s.trim()) : [];
+          const enrolledCourse = myCoursesList.find(c => sessionCodes.includes(c.courseCode));
+          
+          return {
+              ...item,
+              methodType,
+              enumValue,
+              displayCode: enrolledCourse ? enrolledCourse.courseCode : item.courseCode,
+              displayName: enrolledCourse ? enrolledCourse.courseName : item.courseName
+          };
+      };
+
+      const listQR = resQR.data.map(item => formatSession(item, 'QrCode', 1));
+      const listLoc = resLoc.data.map(item => formatSession(item, 'Location', 2));
+      const listFace = resFace.data.map(item => formatSession(item, 'FaceScan', 3));
+
+      setActiveSessions([...listQR, ...listLoc, ...listFace]);
+    } catch (err) {
+      console.error("Oturumlar çekilemedi:", err);
+    } finally {
+      setFetchingSessions(false);
+    }
+  }, []); // Bağımlılık dizisi boş
+
+  // 2. BAŞLANGIÇ GÜVENLİK AYARLARI (Sadece 1 kere çalışır)
   useEffect(() => {
     const getDeviceFingerprint = async () => {
       try {
@@ -55,67 +99,19 @@ const StudentActiveAttendance = () => {
             longitude: position.coords.longitude
           });
         },
-        (error) => {
+        () => {
           setPermissionError("Konum izni verilmedi.");
         },
         { enableHighAccuracy: true }
       );
     };
 
-    const fetchAllActiveSessions = async () => {
-      try {
-        setFetchingSessions(true);
-        const token = localStorage.getItem('jwtToken');
-        if (!token) return;
+    getDeviceFingerprint();
+    getLocation();
+    fetchAllActiveSessions(); // Sayfa ilk açıldığında veriyi çek
+  }, [fetchAllActiveSessions]);
 
-        const config = { headers: { 'Authorization': `Bearer ${token}` } };
-        
-        // Aktif oturumları VE öğrencinin kendi derslerini (my-courses) aynı anda çekiyoruz
-        const reqQR = axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/student/active-sessions/qr', config);
-        const reqLoc = axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/student/active-sessions/location', config);
-        const reqFace = axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/student/active-sessions/face', config);
-        const reqMyCourses = axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/student/my-courses', config); // YENİ EKLENDİ
-
-        const [resQR, resLoc, resFace, resMyCourses] = await Promise.all([reqQR, reqLoc, reqFace, reqMyCourses]);
-
-        const myCoursesList = resMyCourses.data; // Öğrencinin aldığı dersler listesi
-
-        // Ortak dersleri (CMPE419, BLGM419) öğrencinin aldığı derse göre filtreleme fonksiyonu
-        const formatSession = (item, methodType, enumValue) => {
-            // Gelen virgüllü metni diziye çeviriyoruz ("CMPE419, BLGM419" -> ["CMPE419", "BLGM419"])
-            const sessionCodes = item.courseCode ? item.courseCode.split(',').map(s => s.trim()) : [];
-            
-            // Öğrencinin bu gruptan aldığı dersi buluyoruz
-            const enrolledCourse = myCoursesList.find(c => sessionCodes.includes(c.courseCode));
-            
-            return {
-                ...item,
-                methodType,
-                enumValue,
-                // Eğer eşleşme bulursak SADECE onu yaz, bulamazsak backend'den ne geldiyse onu yaz
-                displayCode: enrolledCourse ? enrolledCourse.courseCode : item.courseCode,
-                displayName: enrolledCourse ? enrolledCourse.courseName : item.courseName
-            };
-        };
-
-        const listQR = resQR.data.map(item => formatSession(item, 'QrCode', 1));
-        const listLoc = resLoc.data.map(item => formatSession(item, 'Location', 2));
-        const listFace = resFace.data.map(item => formatSession(item, 'FaceScan', 3));
-
-        setActiveSessions([...listQR, ...listLoc, ...listFace]);
-      } catch (err) {
-        console.error("Oturumlar çekilemedi:", err);
-        alert("HATA OLUŞTU: " + (err.message || "Bilinmeyen hata"));
-        if(err.response) {
-            alert("Sunucu Hatası: " + err.response.status); 
-        }
-      } finally {
-        setFetchingSessions(false);
-      }
-    };
-// =========================================================
-  // 🚀 SIGNALR: ÖĞRENCİ CANLI DİNLEME (SAYFA YENİLEMEDEN DERS DÜŞMESİ)
-  // =========================================================
+  // 3. 🚀 SIGNALR BAĞLANTISI (Sadece 1 kere kurulur)
   useEffect(() => {
     const token = localStorage.getItem('jwtToken');
     if (!token) return;
@@ -129,14 +125,12 @@ const StudentActiveAttendance = () => {
 
     connection.start()
       .then(() => {
-        console.log("[SignalR] Öğrenci bağlantısı kuruldu! Canlı dersler dinleniyor...");
+        console.log("[SignalR] Öğrenci bağlantısı kuruldu!");
 
         // Hoca yeni ders başlattığında
         connection.on("SessionStarted", () => {
-          console.log("[SignalR] Yeni bir ders açıldı! Liste güncelleniyor...");
-          // Mevcut fonksiyonunu çağırıp listeyi yeniliyoruz
-          // (Eğer ESLint kızarsa fetchAllActiveSessions'ı useEffect dışına/içine alabilirsin)
-          window.location.reload(); // En garanti ve hızlı yöntem: Arka planda listeyi tazeletmek istersen fetchAllActiveSessions() yazabilirsin.
+          console.log("[SignalR] Yeni bir ders açıldı! Sayfa yenilenmeden liste tazeleniyor...");
+          fetchAllActiveSessions(); // DİKKAT: Sayfayı reload yapmıyoruz, sadece state'i tazeliyoruz!
         });
 
         // Hoca dersi bitirdiğinde
@@ -150,13 +144,9 @@ const StudentActiveAttendance = () => {
     return () => {
       connection.stop();
     };
-  }, []);
-    getDeviceFingerprint();
-    getLocation();
-    fetchAllActiveSessions();
-  }, []);
+  }, [fetchAllActiveSessions]); // fetch fonksiyonunu dinliyor
 
-  // --- 2. OTOMATİK QR TARAMA FONKSİYONU ---
+  // --- 4. OTOMATİK QR TARAMA FONKSİYONU ---
   const scanQR = useCallback(() => {
     if (webcamRef.current && webcamRef.current.video.readyState === 4) {
       const video = webcamRef.current.video;
@@ -195,13 +185,14 @@ const StudentActiveAttendance = () => {
   }, [modalOpen, selectedSession, scanResult, loading, scanQR]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     if (scanResult && !loading) {
         handleJoinQR(scanResult);
     }
   }, [scanResult]); 
 
 
-  // --- İŞLEM FONKSİYONLARI ---
+  // --- 5. İŞLEM FONKSİYONLARI ---
   const handleJoinClick = (session) => {
     if (!location || !deviceId) {
       alert("Güvenlik verileri bekleniyor...");
@@ -223,7 +214,6 @@ const StudentActiveAttendance = () => {
 
   const handleJoinQR = async (codeToUse = null) => {
     const finalCode = codeToUse || qrInput; 
-
     if (!finalCode) { alert("QR okunamadı!"); return; }
     
     setLoading(true);
@@ -243,6 +233,8 @@ const StudentActiveAttendance = () => {
       
       alert("✅ BAŞARILI: QR Kod onaylandı, derse katıldınız!");
       handleCloseModal();
+      // Derse katılınca listeyi tazele ki, ekrandan o ders düşsün
+      fetchAllActiveSessions();
     } catch (err) {
       alert("❌ HATA: " + (err.response?.data?.message || err.message));
       setScanResult(null); 
@@ -266,6 +258,7 @@ const StudentActiveAttendance = () => {
       });
       alert("Konum doğrulandı, derse katıldınız!");
       handleCloseModal();
+      fetchAllActiveSessions();
     } catch (err) {
       alert("Hata: " + (err.response?.data?.message || err.message));
     } finally {
@@ -298,6 +291,7 @@ const StudentActiveAttendance = () => {
       });
       alert("Yüz doğrulama başarılı!");
       handleCloseModal();
+      fetchAllActiveSessions();
     } catch (err) {
       console.error(err);
       alert("Hata: " + (err.response?.data?.message || "Başarısız."));
@@ -346,7 +340,6 @@ const StudentActiveAttendance = () => {
                 <span>{session.methodType === 'QrCode' ? 'QR Kod' : session.methodType === 'FaceScan' ? 'Yüz Tanıma' : 'Konum'}</span>
               </div>
               
-              {/* BURADA ARTIK displayCode VE displayName KULLANILIYOR */}
               <h3>{session.displayCode}</h3>
               <h4>{session.displayName}</h4>
               <p className="instructor-name">{session.instructorName}</p>
@@ -374,7 +367,6 @@ const StudentActiveAttendance = () => {
         <div className="modal-overlay">
           <div className="attendance-modal-box">
             <div className="modal-header">
-              {/* MODAL BAŞLIĞI DA TEMİZLENDİ */}
               <h3>Yoklamaya Katıl: {selectedSession.displayCode}</h3>
               <button className="close-icon" onClick={handleCloseModal}><FaTimes /></button>
             </div>
