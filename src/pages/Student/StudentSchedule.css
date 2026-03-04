@@ -1,0 +1,130 @@
+/* --- GENEL KONTEYNER --- */
+.schedule-container {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  padding: 20px;
+  margin-top: 20px;
+  overflow: hidden;
+}
+
+/* Tablonun küçük ekranlarda sağa kaydırılabilmesi için */
+.table-responsive {
+  overflow-x: auto;
+}
+
+/* --- TABLO TASARIMI --- */
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px; /* Ekran çok küçülürse sıkışmasın diye */
+  text-align: center;
+  table-layout: fixed; /* Bütün gün sütunlarının eşit genişlikte olmasını sağlar */
+}
+
+/* Tablo Başlıkları (Günler ve Saat İkonu) */
+.schedule-table th {
+  background-color: #f8f9fa;
+  color: #444;
+  font-weight: 600;
+  padding: 15px 10px;
+  border-bottom: 2px solid #e0e0e0;
+  border-right: 1px solid #f0f0f0;
+  font-size: 14px;
+}
+
+.schedule-table th:last-child {
+  border-right: none;
+}
+
+/* Sol üst köşedeki saat ikonu hücresi */
+.time-header {
+  width: 100px; /* Saat sütununun genişliğini sabitliyoruz */
+  color: #666;
+  font-size: 18px;
+}
+
+/* Tablo Hücreleri */
+.schedule-table td {
+  border-right: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 6px;
+  vertical-align: top; /* İçerik her zaman yukarıdan başlasın */
+  height: 80px; /* Boş hücrelerin bile belirli bir yüksekliği olsun */
+}
+
+.schedule-table td:last-child {
+  border-right: none;
+}
+
+/* Saatlerin Yazdığı Sol Sütun */
+.time-cell {
+  background-color: #fafafa;
+  color: #666;
+  font-size: 13px;
+  font-weight: 500;
+  vertical-align: middle !important; /* Saati tam ortala */
+}
+
+/* --- HÜCRE İÇERİĞİ VE DERS KARTLARI --- */
+.cell-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px; /* Aynı saate birden fazla ders gelirse aralarına boşluk koyar */
+  width: 100%;
+  height: 100%;
+}
+
+.event-card {
+  border-radius: 6px;
+  padding: 10px 5px;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: default;
+  min-height: 55px; /* Kartın çok ince olmasını engeller */
+}
+
+/* Fareyle üzerine gelince tatlı bir kalkma efekti */
+.event-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+/* --- DERS RENKLERİ (PALET) --- */
+/* Sol taraflarına eklediğim daha koyu 'border-left' sayesinde daha profesyonel görünürler */
+
+.color-teal {
+  background-color: #009688;
+  border-left: 4px solid #00695c;
+}
+
+.color-green {
+  background-color: #4caf50;
+  border-left: 4px solid #2e7d32;
+}
+
+.color-orange {
+  background-color: #ff9800;
+  border-left: 4px solid #ef6c00;
+}
+
+.color-purple {
+  background-color: #9c27b0;
+  border-left: 4px solid #6a1b9a;
+}
+
+.color-pink {
+  background-color: #e91e63;
+  border-left: 4px solid #ad1457;
+}
+
+/* İleride tekrar kullanmak istersen diye Mavi rengi de buraya ekledim */
+.color-blue {
+  background-color: #2196f3;
+  border-left: 4px solid #1565c0;
+}

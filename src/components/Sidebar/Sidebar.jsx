@@ -5,6 +5,7 @@ import {
 } from 'react-icons/fa';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Sidebar.css';
+import dauLogo from '../../assets/daulogo.jpeg';
 
 const Sidebar = ({ isOpen, toggleSidebar, role = 'admin' }) => {
   const navigate = useNavigate();
@@ -47,7 +48,7 @@ const Sidebar = ({ isOpen, toggleSidebar, role = 'admin' }) => {
     <div className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
         <img 
-          src="https://upload.wikimedia.org/wikipedia/tr/6/66/Dogu_Akdeniz_Universitesi_Logosu.png" 
+          src={dauLogo} 
           alt="Logo" 
           className="sidebar-logo" 
         />

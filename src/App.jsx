@@ -20,7 +20,9 @@ import StudentHome from './pages/Student/StudentHome';
 import StudentProfile from './pages/Student/StudentProfile';
 import StudentAttendance from './pages/Student/StudentAttendance';
 import StudentActiveAttendance from './pages/Student/StudentActiveAttendance';
-import StudentCourseDetailsPage from './pages/Student/StudentCourseDetailsPage'; // ✅ EKLENDİ
+import StudentCourseDetailsPage from './pages/Student/StudentCourseDetailsPage';
+// 🚀 YENİ EKLENEN IMPORT: Öğrenci Ders Programı Sayfası
+import StudentSchedule from './pages/Student/StudentSchedule'; 
 
 // Layout
 import DashboardLayout from './layouts/DashboardLayout';
@@ -58,9 +60,11 @@ function App() {
       <Route path="/student/profile" element={<StudentProfile />} />
       <Route path="/student/attendance" element={<StudentAttendance />} />
       <Route path="/student/active-attendance" element={<StudentActiveAttendance />} />
-      <Route path="/student/course-details/:courseId" element={<StudentCourseDetailsPage />} /> {/* ✅ EKLENDİ */}
+      <Route path="/student/course-details/:courseId" element={<StudentCourseDetailsPage />} /> 
       
-      <Route path="/student/schedule" element={<DashboardLayout role="student"><UnderConstruction title="Ders Programı" /></DashboardLayout>} />
+      {/* 🚀 GÜNCELLENEN ROTA: Yapım aşamasında yazısı kaldırıldı, gerçek sayfa bağlandı */}
+      <Route path="/student/schedule" element={<StudentSchedule />} />
+      
       <Route path="/student/grades" element={<DashboardLayout role="student"><UnderConstruction title="Notlarım" /></DashboardLayout>} />
       <Route path="/student/calendar" element={<DashboardLayout role="student"><UnderConstruction title="Akademik Takvim" /></DashboardLayout>} />
 

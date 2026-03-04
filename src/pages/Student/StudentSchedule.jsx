@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { FaSignOutAlt, FaClock, FaSpinner } from 'react-icons/fa';
-import DashboardLayout from '../../layouts/DashboardLayout';
-import './TeacherSchedule.css';
+import DashboardLayout from '../../layouts/DashboardLayout'; 
+import './StudentSchedule.css'; 
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const TeacherSchedule = () => {
+const StudentSchedule = () => {
   const navigate = useNavigate();
   
   // --- STATE TANIMLARI ---
@@ -42,7 +42,7 @@ const TeacherSchedule = () => {
 
   // Derslere göre sabit renk atamak için fonksiyon
   const getCourseColor = (courseCode) => {
-    const colors = ["red", "green", "orange", "purple", "pink", "blue"];
+    const colors = ["teal", "green", "orange", "purple", "pink"]; // blue çıkarıldı
     let hash = 0;
     for (let i = 0; i < courseCode.length; i++) {
       hash = courseCode.charCodeAt(i) + ((hash << 5) - hash);
@@ -57,22 +57,21 @@ const TeacherSchedule = () => {
         setLoading(true);
         const token = localStorage.getItem('jwtToken');
         
-        // 🚀 URL BURADA GÜNCELLENDİ (CourseController'daki my-timetable endpoint'i)
         const response = await axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Course/my-timetable', {
           headers: { Authorization: `Bearer ${token}` }
         });
 
-        // Backend'den gelen veriyi Frontend tablosunun anladığı formata çeviriyoruz
+        // Veriyi tabloya uygun formata çevir
         const formattedData = response.data.map(item => {
-          // Backend'den gelen "08:30-09:20" metnini boşluklu "08:30 - 09:20" yap (Tabloyla eşleşsin)
           const timeParts = item.timeSlot.split('-');
           const formattedTime = `${timeParts[0].trim()} - ${timeParts[1].trim()}`;
 
           return {
-            day: dayTranslator[item.day] || item.day, // "Monday" -> "Pazartesi"
+            day: dayTranslator[item.day] || item.day,
             time: formattedTime,
-            code: `${item.courseCode} / ${item.classRoom}`, // "BLGM428 / CL 115"
-            color: getCourseColor(item.courseCode) // Derse özel renk
+            courseCode: item.courseCode,
+            classRoom: item.classRoom,
+            color: getCourseColor(item.courseCode)
           };
         });
 
@@ -88,29 +87,27 @@ const TeacherSchedule = () => {
     fetchSchedule();
   }, []);
 
-  // Helper: Belirli bir gün ve saatte ders var mı diye kontrol eder
+  // Belirli bir gün ve saatte ders var mı kontrol et
   const getEventsForCell = (day, time) => {
     return scheduleData.filter(item => item.day === day && item.time === time);
   };
 
   return (
-    <DashboardLayout role="teacher">
+    <DashboardLayout role="student">
       <header className="dashboard-header">
-        <h1>Ders Programı</h1>
+        <h1>Ders Programım</h1>
         <div className="header-actions">
           <button className="lang-btn">TR</button>
           <FaSignOutAlt className="logout-icon" onClick={() => navigate('/')} />
         </div>
       </header>
 
-      {/* Yükleniyor Durumu */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '50px', color: '#666', fontSize: '18px' }}>
           <FaSpinner className="spinner-animation fa-spin" style={{ marginRight: '10px' }} />
-          Ders programı yükleniyor...
+          Programınız yükleniyor...
         </div>
       ) : (
-        /* Tablo Kapsayıcı */
         <div className="schedule-container">
           <div className="table-responsive">
             <table className="schedule-table">
@@ -125,10 +122,8 @@ const TeacherSchedule = () => {
               <tbody>
                 {timeSlots.map((time, index) => (
                   <tr key={index}>
-                    {/* Saat Sütunu */}
                     <td className="time-cell">{time}</td>
                     
-                    {/* Gün Sütunları */}
                     {days.map(day => {
                       const events = getEventsForCell(day, time);
                       return (
@@ -136,7 +131,13 @@ const TeacherSchedule = () => {
                           <div className="cell-content">
                             {events.map((event, idx) => (
                               <div key={idx} className={`event-card color-${event.color}`}>
-                                {event.code}
+                                {/* SADECE DERS KODU VE SINIF BIRAKILDI */}
+                                <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '2px' }}>
+                                  {event.courseCode}
+                                </div>
+                                <div style={{ fontSize: '11px', opacity: 0.9 }}>
+                                  {event.classRoom}
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -154,4 +155,4 @@ const TeacherSchedule = () => {
   );
 };
 
-export default TeacherSchedule;
+export default StudentSchedule;
