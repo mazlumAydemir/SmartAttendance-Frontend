@@ -61,9 +61,9 @@
     color: white;
 }
 
-.method-badge.qrcode { background: #2196f3; }   /* Mavi */
-.method-badge.facescan { background: #9c27b0; } /* Mor */
-.method-badge.location { background: #ff9800; } /* Turuncu */
+.method-badge.qrcode { background: #2196f3; }
+.method-badge.facescan { background: #9c27b0; }
+.method-badge.location { background: #ff9800; }
 
 .session-card-student h3 {
     color: #555;
@@ -105,8 +105,12 @@
 .btn-join:hover:not(:disabled) {
     background: #1565c0;
 }
+.modal-content {
 
-/* --- MODAL --- */
+  width: 100%;;
+}
+
+/* --- MODAL (HİZALAMA VE TAŞMA SORUNLARI ÇÖZÜLDÜ) --- */
 .modal-overlay {
     position: fixed;
     top: 0; left: 0;
@@ -116,15 +120,21 @@
     justify-content: center;
     align-items: center;
     z-index: 1000;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 .attendance-modal-box {
+    
     background: white;
-    width: 90%;
-    max-width: 500px;
-    border-radius: 12px;
-    overflow: hidden;
+    width: 100%;
+    max-width: 420px; /* Ekranı çok kaplamaması için küçültüldü */
+    border-radius: 16px;
     position: relative;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
 }
 
 .modal-header {
@@ -134,6 +144,8 @@
     justify-content: space-between;
     align-items: center;
     background: #f8f9fa;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
 }
 
 .close-icon {
@@ -142,15 +154,24 @@
     font-size: 20px;
     cursor: pointer;
     color: #666;
+    transition: color 0.2s;
+}
+
+.close-icon:hover {
+    color: #d32f2f;
 }
 
 .modal-content {
     padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
 }
 
 /* Kamera Alanı */
 .camera-container {
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -158,8 +179,9 @@
 
 .instruction {
     margin-bottom: 15px;
-    font-weight: 500;
+    font-weight: 600;
     color: #333;
+    font-size: 15px;
 }
 
 .camera-wrapper {
@@ -167,75 +189,93 @@
     height: 300px;
     background: #000;
     border-radius: 12px;
-    overflow: hidden;
     position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 20px;
+    overflow: hidden;
+    margin-bottom: 10px;
+     margin-left: 10px;
+    /* Gölgelerin köşelerden taşmasını kesin olarak engeller (Safari bug fix) */
+    isolation: isolate; 
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
 }
 
 .webcam-view {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
 }
 
 /* Yüz Tanıma İçin Yuvarlak Maske */
 .circle-mask .webcam-view {
-    border-radius: 50%; /* İsteğe bağlı, tüm videoyu yuvarlak yapar */
-    /* Veya bir overlay div ile maske yapılabilir */
+    border-radius: 50%; 
+    width: 80%; 
+    height: 80%;
+    top: 10%;
+    left: 10%;
 }
 
+/* QR Çerçevesi (Tam Merkeze Sabitlendi) */
 .qr-overlay {
     position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Matematiksel mükemmel merkezleme */
     width: 200px;
     height: 200px;
-    border: 2px solid rgba(255,255,255,0.7);
-    border-radius: 12px;
-    box-shadow: 0 0 0 1000px rgba(0,0,0,0.5);
+    border: 3px solid rgba(255, 255, 255, 0.9);
+    border-radius: 16px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6); /* Etrafı karartma */
+    pointer-events: none;
+    z-index: 2;
 }
 
 .camera-loader {
     position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
     color: white;
     z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.6);
 }
 
 /* Konum Alanı */
 .location-confirm-container {
-    padding: 20px;
+    width: 100%;
+    padding: 10px 0;
 }
 
 .big-icon-location {
     font-size: 60px;
     color: #ff9800;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 .lat-long-box {
     background: #f1f1f1;
-    padding: 10px;
-    border-radius: 6px;
-    margin: 10px 0;
+    padding: 12px;
+    border-radius: 8px;
+    margin: 15px 0;
     display: flex;
     justify-content: center;
     gap: 15px;
     font-family: monospace;
+    font-size: 14px;
+    color: #333;
 }
 
-.warning-text {
-    font-size: 12px;
-    color: #d32f2f;
-    margin-bottom: 20px;
-}
-
+/* Aksiyon Butonu */
 .btn-action {
     background: #2e7d32;
     color: white;
     border: none;
-    padding: 12px 25px;
-    border-radius: 30px;
+    padding: 14px 25px;
+    border-radius: 8px;
     font-size: 16px;
     font-weight: bold;
     cursor: pointer;
@@ -244,4 +284,14 @@
     justify-content: center;
     gap: 10px;
     width: 100%;
+    transition: background 0.3s;
+}
+
+.btn-action:hover:not(:disabled) {
+    background: #1b5e20;
+}
+
+.btn-action:disabled {
+    background: #9e9e9e;
+    cursor: not-allowed;
 }

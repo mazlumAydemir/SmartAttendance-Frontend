@@ -23,16 +23,13 @@ const StudentActiveAttendance = () => {
   const [deviceId, setDeviceId] = useState(null);
   const [permissionError, setPermissionError] = useState(null);
   
-  // Form Verileri
-  const [qrInput, setQrInput] = useState(""); 
-
   // Durumlar
   const [loading, setLoading] = useState(false);
   const [fetchingSessions, setFetchingSessions] = useState(true);
   const [cameraLoading, setCameraLoading] = useState(true);
   const [scanResult, setScanResult] = useState(null); 
 
-  // 1. VERİ ÇEKME FONKSİYONU (Dışarıya alındı ki SignalR çağırabilsin)
+  // 1. VERİ ÇEKME FONKSİYONU
   const fetchAllActiveSessions = useCallback(async () => {
     try {
       setFetchingSessions(true);
@@ -73,34 +70,38 @@ const StudentActiveAttendance = () => {
     } finally {
       setFetchingSessions(false);
     }
-  }, []); // Bağımlılık dizisi boş
+  }, []);
 
-  // 2. BAŞLANGIÇ GÜVENLİK AYARLARI (Sadece 1 kere çalışır)
+  // 2. BAŞLANGIÇ GÜVENLİK AYARLARI
   useEffect(() => {
+    let isMounted = true; 
+
     const getDeviceFingerprint = async () => {
       try {
         const fp = await FingerprintJS.load();
         const result = await fp.get();
-        setDeviceId(result.visitorId);
+        if (isMounted) setDeviceId(result.visitorId);
       } catch (error) {
-        setDeviceId("unknown-device-" + Date.now());
+        if (isMounted) setDeviceId("unknown-device-" + Date.now());
       }
     };
 
     const getLocation = () => {
       if (!navigator.geolocation) {
-        setPermissionError("Tarayıcı konum desteklemiyor.");
+        if (isMounted) setPermissionError("Tarayıcı konum desteklemiyor.");
         return;
       }
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          });
+          if (isMounted) {
+            setLocation({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude
+            });
+          }
         },
         () => {
-          setPermissionError("Konum izni verilmedi.");
+          if (isMounted) setPermissionError("Konum izni verilmedi.");
         },
         { enableHighAccuracy: true }
       );
@@ -108,10 +109,12 @@ const StudentActiveAttendance = () => {
 
     getDeviceFingerprint();
     getLocation();
-    fetchAllActiveSessions(); // Sayfa ilk açıldığında veriyi çek
+    fetchAllActiveSessions();
+
+    return () => { isMounted = false; };
   }, [fetchAllActiveSessions]);
 
-  // 3. 🚀 SIGNALR BAĞLANTISI (Sadece 1 kere kurulur)
+  // 3. SIGNALR BAĞLANTISI
   useEffect(() => {
     const token = localStorage.getItem('jwtToken');
     if (!token) return;
@@ -125,26 +128,21 @@ const StudentActiveAttendance = () => {
 
     connection.start()
       .then(() => {
-        console.log("[SignalR] Öğrenci bağlantısı kuruldu!");
-
-        // Hoca yeni ders başlattığında
         connection.on("SessionStarted", () => {
-          console.log("[SignalR] Yeni bir ders açıldı! Sayfa yenilenmeden liste tazeleniyor...");
-          fetchAllActiveSessions(); // DİKKAT: Sayfayı reload yapmıyoruz, sadece state'i tazeliyoruz!
+          setTimeout(() => {
+              fetchAllActiveSessions();
+          }, 500); 
         });
 
-        // Hoca dersi bitirdiğinde
         connection.on("SessionEndedGlobal", (sessionId) => {
-          console.log(`[SignalR] ${sessionId} numaralı ders kapandı.`);
           setActiveSessions(prev => prev.filter(s => s.sessionId !== sessionId));
         });
       })
       .catch(err => console.error("[SignalR] Bağlantı Hatası:", err));
 
-    return () => {
-      connection.stop();
-    };
-  }, [fetchAllActiveSessions]); // fetch fonksiyonunu dinliyor
+    return () => { connection.stop(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
 
   // --- 4. OTOMATİK QR TARAMA FONKSİYONU ---
   const scanQR = useCallback(() => {
@@ -162,9 +160,7 @@ const StudentActiveAttendance = () => {
       });
 
       if (code) {
-        console.log("QR Bulundu:", code.data);
         setScanResult(code.data); 
-        setQrInput(code.data);  
         return true; 
       }
     }
@@ -176,30 +172,26 @@ const StudentActiveAttendance = () => {
     if (modalOpen && selectedSession?.methodType === 'QrCode' && !scanResult && !loading) {
       intervalId = setInterval(() => {
         const found = scanQR();
-        if (found) {
-            clearInterval(intervalId); 
-        }
+        if (found) clearInterval(intervalId); 
       }, 300); 
     }
     return () => clearInterval(intervalId);
   }, [modalOpen, selectedSession, scanResult, loading, scanQR]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     if (scanResult && !loading) {
         handleJoinQR(scanResult);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanResult]); 
-
 
   // --- 5. İŞLEM FONKSİYONLARI ---
   const handleJoinClick = (session) => {
     if (!location || !deviceId) {
-      alert("Güvenlik verileri bekleniyor...");
+      alert("Güvenlik verileri (Konum ve Cihaz ID) bekleniyor. Lütfen tarayıcı izinlerinizi kontrol edin.");
       return;
     }
     setSelectedSession(session);
-    setQrInput(""); 
     setScanResult(null); 
     setModalOpen(true);
     setCameraLoading(true);
@@ -212,16 +204,15 @@ const StudentActiveAttendance = () => {
     setScanResult(null);
   };
 
-  const handleJoinQR = async (codeToUse = null) => {
-    const finalCode = codeToUse || qrInput; 
-    if (!finalCode) { alert("QR okunamadı!"); return; }
+  const handleJoinQR = async (scannedCode) => {
+    if (!scannedCode) return; 
     
     setLoading(true);
     try {
       const token = localStorage.getItem('jwtToken');
       const payload = {
         sessionId: selectedSession.sessionId,
-        qrContent: finalCode,
+        qrContent: scannedCode,
         deviceId: deviceId,
         latitude: location.latitude,
         longitude: location.longitude
@@ -233,7 +224,6 @@ const StudentActiveAttendance = () => {
       
       alert("✅ BAŞARILI: QR Kod onaylandı, derse katıldınız!");
       handleCloseModal();
-      // Derse katılınca listeyi tazele ki, ekrandan o ders düşsün
       fetchAllActiveSessions();
     } catch (err) {
       alert("❌ HATA: " + (err.response?.data?.message || err.message));
@@ -256,11 +246,11 @@ const StudentActiveAttendance = () => {
       await axios.post('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/join-location', payload, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      alert("Konum doğrulandı, derse katıldınız!");
+      alert("✅ BAŞARILI: Konum doğrulandı, derse katıldınız!");
       handleCloseModal();
       fetchAllActiveSessions();
     } catch (err) {
-      alert("Hata: " + (err.response?.data?.message || err.message));
+      alert("❌ HATA: " + (err.response?.data?.message || err.message));
     } finally {
       setLoading(false);
     }
@@ -289,12 +279,12 @@ const StudentActiveAttendance = () => {
           'Content-Type': 'multipart/form-data'
         }
       });
-      alert("Yüz doğrulama başarılı!");
+      alert("✅ BAŞARILI: Yüz doğrulama başarılı!");
       handleCloseModal();
       fetchAllActiveSessions();
     } catch (err) {
       console.error(err);
-      alert("Hata: " + (err.response?.data?.message || "Başarısız."));
+      alert("❌ HATA: " + (err.response?.data?.message || "Başarısız."));
     } finally {
       setLoading(false);
     }
@@ -364,10 +354,11 @@ const StudentActiveAttendance = () => {
       )}
 
       {modalOpen && selectedSession && (
-        <div className="modal-overlay">
-          <div className="attendance-modal-box">
+        <div className="modal-overlay" onClick={handleCloseModal}>
+          {/* Modal kutusu, tıklandığında kapanmasını önlemek için stopPropagation kullanılıyor */}
+          <div className="attendance-modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Yoklamaya Katıl: {selectedSession.displayCode}</h3>
+              <h3 style={{ margin: 0, fontSize: '18px' }}>Yoklamaya Katıl: {selectedSession.displayCode}</h3>
               <button className="close-icon" onClick={handleCloseModal}><FaTimes /></button>
             </div>
 
@@ -381,9 +372,9 @@ const StudentActiveAttendance = () => {
                   
                   <div className="camera-wrapper">
                     {(cameraLoading || loading) && (
-                        <div className="camera-loader" style={{background: 'rgba(0,0,0,0.5)', width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                        <div className="camera-loader">
                             <FaSpinner className="fa-spin" size={30}/> 
-                            {loading ? " Kaydediliyor..." : " Kamera Açılıyor..."}
+                            <p style={{ marginTop: '10px' }}>{loading ? "Kaydediliyor..." : "Kamera Açılıyor..."}</p>
                         </div>
                     )}
                     
@@ -397,28 +388,17 @@ const StudentActiveAttendance = () => {
                       className="webcam-view"
                     />
                     
-                    <div className="qr-overlay" style={{ borderColor: scanResult ? '#00ff00' : 'rgba(255,255,255,0.8)' }}></div>
-                  </div>
-
-                  <div className="qr-input-group">
-                    <input 
-                      type="text" 
-                      placeholder="Kamera okumazsa kodu buraya girin..." 
-                      value={qrInput}
-                      onChange={(e) => setQrInput(e.target.value)}
-                      className="qr-manual-input"
-                    />
+                    <div className="qr-overlay" style={{ borderColor: scanResult ? '#4caf50' : 'rgba(255,255,255,0.7)' }}></div>
                   </div>
                   
-                  <button className="btn-action" onClick={() => handleJoinQR(null)} disabled={loading}>
-                    {loading ? <FaSpinner className="fa-spin" /> : "Manuel Gönder"}
-                  </button>
+                  {/* MANUEL GİRİŞ VE BUTON SİLİNDİ */}
                 </div>
               )}
 
               {selectedSession.methodType === 'FaceScan' && (
                 <div className="camera-container">
                   <p className="instruction">Yüzünüzü çerçevenin içine getirin</p>
+                  
                   <div className="camera-wrapper circle-mask">
                     <Webcam
                       audio={false}
@@ -428,6 +408,7 @@ const StudentActiveAttendance = () => {
                       className="webcam-view"
                     />
                   </div>
+                  
                   <button className="btn-action" onClick={handleJoinFace} disabled={loading}>
                     {loading ? <FaSpinner className="fa-spin" /> : <><FaCamera /> Fotoğraf Çek ve Katıl</>}
                   </button>
