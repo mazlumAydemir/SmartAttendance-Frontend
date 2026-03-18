@@ -58,7 +58,7 @@ const TeacherSchedule = () => {
         const token = localStorage.getItem('jwtToken');
         
         // 🚀 URL BURADA GÜNCELLENDİ (CourseController'daki my-timetable endpoint'i)
-        const response = await axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Course/my-timetable', {
+        const response = await axios.get('https://localhost:7022/api/Course/my-timetable', {
           headers: { Authorization: `Bearer ${token}` }
         });
 

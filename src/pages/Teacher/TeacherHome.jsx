@@ -32,7 +32,7 @@ const TeacherHome = () => {
           return;
         }
 
-        const response = await axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/my-courses', {
+        const response = await axios.get('https://localhost:7022/api/Attendance/my-courses', {
           headers: {
             'Authorization': `Bearer ${token}`
           }

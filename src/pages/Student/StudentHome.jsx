@@ -95,7 +95,7 @@ const requestNotificationPermission = async () => {
     }
 
     await axios.post(
-      'https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Auth/update-fcm-token',
+      'https://localhost:7022/api/Auth/update-fcm-token',
       { token: currentToken },
       { headers: { Authorization: `Bearer ${jwtToken}` } }
     );
@@ -175,7 +175,7 @@ const StudentHome = () => {
     try {
       const token = localStorage.getItem('jwtToken');
       const response = await axios.get(
-        'https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/student/my-courses',
+        'https://localhost:7022/api/Attendance/student/my-courses',
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setCourses(response.data);

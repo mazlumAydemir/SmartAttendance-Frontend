@@ -34,7 +34,7 @@ const Login = () => {
       setLoading(true);
 
       // 2. API'ye İstek Atma
-      const response = await axios.post('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/auth/login', {
+      const response = await axios.post('https://localhost:7022/api/auth/login', {
         email: email,      
         password: password 
       });

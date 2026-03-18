@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { FaSignOutAlt, FaQrcode, FaSmile, FaMapMarkerAlt, FaChevronRight, FaSpinner, FaCheckCircle, FaCalendarAlt, FaClock } from 'react-icons/fa';
+import React, { useState, useEffect, useRef } from 'react';
+import { FaSignOutAlt, FaQrcode, FaSmile, FaMapMarkerAlt, FaChevronRight, FaSpinner, FaCheckCircle, FaCalendarAlt, FaClock, FaSyncAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import QRCode from "react-qr-code";
+import Webcam from "react-webcam";
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './TeacherAttendance.css'; 
 
@@ -15,8 +16,8 @@ const TeacherAttendance = () => {
   const [attendanceType, setAttendanceType] = useState('');
   
   // Form Verileri
-  const [courses, setCourses] = useState([]); // Ekranda gösterilecek gruplanmış dersler
-  const [selectedCourseIds, setSelectedCourseIds] = useState(''); // Artık tek ID değil, "2,3" gibi virgüllü tutacağız
+  const [courses, setCourses] = useState([]);
+  const [selectedCourseIds, setSelectedCourseIds] = useState(''); 
   
   const [selectedDateOnly, setSelectedDateOnly] = useState(new Date().toISOString().slice(0, 10));
   const [selectedPeriodTime, setSelectedPeriodTime] = useState("08:30");
@@ -37,6 +38,16 @@ const TeacherAttendance = () => {
   const [qrContent, setQrContent] = useState("");
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // --- YÜZ TANIMA (KAMERA) İÇİN YENİ STATE VE REF'LER ---
+  const webcamRef = useRef(null);
+  const [recognizedNames, setRecognizedNames] = useState([]);
+  const [facingMode, setFacingMode] = useState("environment");
+  
+  // SÜREKLİ TARAMA İÇİN KONTROLCÜLER
+  const [isContinuousScanning, setIsContinuousScanning] = useState(false);
+  const scanningRef = useRef(false);
+  const timeoutRef = useRef(null); // Döngüyü tamamen iptal edebilmek için eklendi
 
   const getDotNetTicks = () => {
     const now = new Date();
@@ -60,7 +71,7 @@ const TeacherAttendance = () => {
     };
   }, [createdSession, attendanceType]);
 
-  // --- DERSLERİ ÇEKME VE GRUPLAMA (ÇAPRAZ DERS MANTIĞI) ---
+  // --- DERSLERİ ÇEKME VE GRUPLAMA ---
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -68,13 +79,11 @@ const TeacherAttendance = () => {
         const token = localStorage.getItem('jwtToken');
         if (!token) return;
 
-        const response = await axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/my-courses', {
+        const response = await axios.get('https://localhost:7022/api/Attendance/my-courses', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
         const rawCourses = response.data;
-        
-        // Ders kodundaki sayılara göre (Örn: 419) gruplama yapıyoruz
         const grouped = {};
         rawCourses.forEach(course => {
           const match = course.courseCode.match(/\d+/);
@@ -93,27 +102,23 @@ const TeacherAttendance = () => {
           }
         });
 
-        // Gruplanmış objeyi select-option için diziye çeviriyoruz
         const displayCourses = Object.values(grouped).map(g => {
           if (g.ids.length === 1) {
-            // Tekli ders (Örn: Sadece CMPE428)
             return {
-              value: g.ids.join(','), // "1"
+              value: g.ids.join(','), 
               label: `${g.codes[0]} - ${g.names[0]}`
             };
           } else {
-            // Çapraz ders (Örn: CMPE419 ve BLGM419)
             return {
-              value: g.ids.join(','), // "2,3"
-              label: `${g.codes.join(' / ')} - ${g.names[0]}` // "CMPE419 / BLGM419 - Mobile App Development"
+              value: g.ids.join(','), 
+              label: `${g.codes.join(' / ')} - ${g.names[0]}` 
             };
           }
         });
 
         setCourses(displayCourses);
-        
         if (displayCourses.length > 0) {
-          setSelectedCourseIds(displayCourses[0].value); // İlk grubun ID(ler)ini seçili yap
+          setSelectedCourseIds(displayCourses[0].value); 
         }
       } catch (err) {
         console.error("Dersler yüklenemedi", err);
@@ -129,14 +134,32 @@ const TeacherAttendance = () => {
     setAttendanceType(type);
     setCreatedSession(null); 
     setQrContent(""); 
+    setRecognizedNames([]); 
+    setFacingMode("environment"); 
+    
+    // Taramayı sıfırla
+    setIsContinuousScanning(false);
+    scanningRef.current = false;
+    clearTimeout(timeoutRef.current);
+
     setSelectedDateOnly(new Date().toISOString().slice(0, 10));
     setShowModal(true);
   };
 
   const handleCloseModal = () => {
+    // Modalı Kapatırken taramayı KESİN olarak durdur
+    scanningRef.current = false;
+    setIsContinuousScanning(false);
+    clearTimeout(timeoutRef.current);
+    
     setShowModal(false);
     setSubmitting(false);
     setCreatedSession(null);
+    setRecognizedNames([]); 
+  };
+
+  const toggleCamera = () => {
+    setFacingMode(prevMode => (prevMode === "environment" ? "user" : "environment"));
   };
 
   // --- YOKLAMA BAŞLATMA ---
@@ -155,15 +178,13 @@ const TeacherAttendance = () => {
 
       if (attendanceType === 'QRCode') { methodEnum = 1; } 
       else if (attendanceType === 'Location') { methodEnum = 2; } 
-      else if (attendanceType === 'FaceRecognition') { methodEnum = 3; requireFace = true; }
+      else if (attendanceType === 'FaceRecognition') { methodEnum = 3; requireFace = true; } 
 
       const finalDateTime = `${selectedDateOnly}T${selectedPeriodTime}:00`;
-
-      // VİRGÜLLÜ METNİ ([2,3] GİBİ) SAYISAL DİZİYE ÇEVİRİYORUZ
       const idArray = selectedCourseIds.split(',').map(id => parseInt(id));
 
       const payload = {
-        courseIds: idArray, // BURASI ARTIK [2, 3] GİBİ BİR DİZİ GİDİYOR
+        courseIds: idArray, 
         method: methodEnum,                      
         requireFaceVerification: requireFace,    
         requireDeviceVerification: true,         
@@ -171,20 +192,15 @@ const TeacherAttendance = () => {
         startTime: finalDateTime 
       };
 
-      console.log("Giden Veri:", payload);
-
-      const response = await axios.post('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/attendance/start', payload, {
+      const response = await axios.post('https://localhost:7022/api/attendance/start', payload, {
         headers: { 
           'Authorization': `Bearer ${token}`, 
           'Content-Type': 'application/json' 
         }
       });
 
-      console.log("Başarılı:", response.data);
       setCreatedSession(response.data);
-
     } catch (err) {
-      console.error("Hata:", err);
       let errorMsg = "Yoklama başlatılamadı.";
       if (err.response && err.response.data) {
           errorMsg = err.response.data.message || JSON.stringify(err.response.data);
@@ -193,6 +209,70 @@ const TeacherAttendance = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // =========================================================================
+  // OTOMATİK SÜREKLİ TARAMA MANTIĞI
+  // =========================================================================
+  const dataURLtoFile = (dataurl, filename) => {
+      let arr = dataurl.split(','),
+          mime = arr[0].match(/:(.*?);/)[1],
+          bstr = atob(arr[1]),
+          n = bstr.length,
+          u8arr = new Uint8Array(n);
+      while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new File([u8arr], filename, { type: mime });
+  };
+
+  // Arka arkaya resim çeken ana döngü fonksiyonu
+  const processNextFrame = async () => {
+      // Eğer tarama durdurulduysa, modal kapandıysa veya kamera yoksa çık
+      if (!scanningRef.current || !webcamRef.current || !createdSession) return;
+      
+      try {
+          const imageSrc = webcamRef.current.getScreenshot();
+          if (imageSrc) {
+              const imageFile = dataURLtoFile(imageSrc, 'crowd_scan.jpg');
+              const formData = new FormData();
+              formData.append('sessionId', createdSession.sessionId); 
+              formData.append('frame', imageFile);
+
+              const token = localStorage.getItem('jwtToken');
+              const response = await axios.post('https://localhost:7022/api/Attendance/instructor/scan-crowd', formData, {
+                  headers: {
+                      'Content-Type': 'multipart/form-data',
+                      'Authorization': `Bearer ${token}`
+                  }
+              });
+
+              const newlyRecognized = response.data.recognizedNames;
+              if (newlyRecognized && newlyRecognized.length > 0) {
+                  setRecognizedNames(prev => {
+                      const combined = [...prev, ...newlyRecognized];
+                      return [...new Set(combined)]; 
+                  });
+              }
+          }
+      } catch (error) {
+          console.error("Tarama Hatası:", error);
+      }
+
+      // Döngüyü sürdür: Hoca pencereyi kapatmadığı sürece her 2 saniyede bir devam et.
+      if (scanningRef.current) {
+          timeoutRef.current = setTimeout(processNextFrame, 2000); 
+      }
+  };
+
+  // KAMERA EKRANA GELİP HAZIR OLDUĞU AN OTOMATİK TETİKLENEN FONKSİYON
+  const handleCameraReady = () => {
+      if (!scanningRef.current && createdSession) {
+          scanningRef.current = true;
+          setIsContinuousScanning(true);
+          clearTimeout(timeoutRef.current); // Eski döngüler varsa temizle
+          processNextFrame(); // Taramayı ateşle!
+      }
   };
 
   return (
@@ -227,16 +307,16 @@ const TeacherAttendance = () => {
 
       {showModal && (
         <div className="modal-overlay" onClick={handleCloseModal}>
-           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+           <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '90vh', overflowY: 'auto' }}>
              
              {createdSession ? (
                <div style={{ textAlign: 'center', padding: '10px' }}>
-                 {attendanceType === 'QRCode' ? (
+                 
+                 {/* QR KOD EKRANI */}
+                 {attendanceType === 'QRCode' && (
                    <>
                      <h2 style={{ color: '#2e7d32', marginBottom: '10px' }}>Yoklama Başlatıldı!</h2>
-                     <p style={{ fontSize:'12px', color: '#e65100', fontWeight:'bold' }}>
-                        QR Kod her 12 saniyede bir yenileniyor...
-                     </p>
+                     <p style={{ fontSize:'12px', color: '#e65100', fontWeight:'bold' }}>QR Kod her 12 saniyede bir yenileniyor...</p>
                      
                      <div style={{ background: 'white', padding: '15px', display: 'inline-block', border: '1px solid #ddd', borderRadius: '8px', marginBottom: '15px' }}>
                         {qrContent ? <QRCode value={qrContent} size={220} /> : <p>QR Oluşturuluyor...</p>}
@@ -244,23 +324,72 @@ const TeacherAttendance = () => {
 
                      <div style={{ background: '#f5f5f5', padding: '10px', borderRadius: '6px', margin: '0 auto 20px auto', maxWidth: '300px' }}>
                         <span style={{ display: 'block', fontSize: '12px', color: '#888' }}>Oturum Kodu</span>
-                        <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#333', letterSpacing: '2px' }}>
-                          {createdSession.sessionCode}
-                        </span>
+                        <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#333', letterSpacing: '2px' }}>{createdSession.sessionCode}</span>
                      </div>
                    </>
-                 ) : (
+                 )}
+
+                 {/* YÜZ TANIMA (KAMERA) EKRANI - OTOMATİK TARAMA */}
+                 {attendanceType === 'FaceRecognition' && (
+                    <div style={{ padding: '0px', width: '100%', maxWidth: '500px', margin: '0 auto' }}>
+                        
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            <h2 style={{ color: '#2e7d32', margin: 0, fontSize: '1.2rem' }}>Canlı Sınıf Taraması</h2>
+                            <button 
+                                onClick={toggleCamera} 
+                                style={{ background: '#e2e8f0', color: '#334155', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', fontSize: '12px' }}
+                            >
+                                <FaSyncAlt /> Çevir
+                            </button>
+                        </div>
+                        
+                        <p style={{ color: '#555', marginBottom: '15px', fontSize: '13px', textAlign: 'left' }}>
+                           Kamerayı sınıfa doğrultun. Sistem yüzleri otomatik olarak bulup kaydedecektir.
+                        </p>
+                        
+                        <div style={{ borderRadius: '12px', overflow: 'hidden', border: isContinuousScanning ? '4px solid #10b981' : '3px solid #1f2937', marginBottom: '15px', backgroundColor: '#000', minHeight: '250px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                            
+                            {/* Üstteki yeşil tarama uyarı bandı */}
+                            {isContinuousScanning && (
+                                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', background: 'rgba(16, 185, 129, 0.8)', color: 'white', padding: '4px 0', fontSize: '12px', fontWeight: 'bold', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}>
+                                    <FaSpinner className="fa-spin" /> Otomatik Tarama Aktif
+                                </div>
+                            )}
+
+                            <Webcam
+                                audio={false}
+                                ref={webcamRef}
+                                screenshotFormat="image/jpeg"
+                                videoConstraints={{ facingMode: facingMode }} 
+                                onUserMedia={handleCameraReady} // KAMERA HAZIR OLDUĞU AN OTOMATİK ÇALIŞTIRIR!
+                                style={{ width: '100%', height: 'auto', objectFit: 'cover' }}
+                            />
+                        </div>
+
+                        <div style={{ textAlign: 'left', background: '#f3f4f6', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                            <h4 style={{ margin: '0 0 10px 0', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                ✅ Tanınan Öğrenciler 
+                                <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '12px', fontSize: '12px' }}>{recognizedNames.length}</span>
+                            </h4>
+                            {recognizedNames.length === 0 ? (
+                                <p style={{ margin: 0, fontSize: '13px', color: '#6b7280', fontStyle: 'italic' }}>Henüz kimse tespit edilmedi...</p>
+                            ) : (
+                                <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: '#047857', maxHeight: '120px', overflowY: 'auto' }}>
+                                    {recognizedNames.map((name, idx) => (
+                                        <li key={idx} style={{ marginBottom: '6px', fontWeight: 'bold' }}>{name}</li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    </div>
+                 )}
+
+                 {/* KONUM EKRANI */}
+                 {attendanceType === 'Location' && (
                    <div style={{ padding: '30px 10px' }}>
                      <FaCheckCircle style={{ fontSize: '60px', color: '#4caf50', marginBottom: '20px' }} />
-                     
-                     <h2 style={{ color: '#2e7d32', marginBottom: '10px' }}>
-                        {attendanceType === 'FaceRecognition' ? 'Yüz Tanıma' : 'Konum'} Yoklaması Aktif!
-                     </h2>
-                     
-                     <p style={{ color: '#555', marginBottom: '20px', fontSize: '16px' }}>
-                        Yoklama sistemi başarıyla devreye alındı. Öğrenciler giriş yapabilirler.
-                     </p>
-
+                     <h2 style={{ color: '#2e7d32', marginBottom: '10px' }}>Konum Yoklaması Aktif!</h2>
+                     <p style={{ color: '#555', marginBottom: '20px', fontSize: '16px' }}>Öğrenciler giriş yapabilirler.</p>
                      <div style={{ background: '#e8f5e9', padding: '15px', borderRadius: '8px', display: 'inline-block' }}>
                         <span style={{ fontWeight: 'bold', color: '#2e7d32' }}>Oturum Kodu: </span>
                         <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{createdSession.sessionCode}</span>
@@ -268,8 +397,8 @@ const TeacherAttendance = () => {
                    </div>
                  )}
 
-                 <button className="btn-start-blue" onClick={handleCloseModal} style={{ marginTop: '20px' }}>
-                    Tamam, Kapat
+                 <button className="btn-cancel" onClick={handleCloseModal} style={{ marginTop: '20px', padding: '12px 20px', width: '100%', border:'none', background:'#ef4444', color:'white', borderRadius:'8px', cursor:'pointer', fontWeight: 'bold' }}>
+                   {attendanceType === 'FaceRecognition' ? 'Pencereyi Kapat / Taramayı Bitir' : 'Kapat'}
                  </button>
                </div>
 
@@ -342,7 +471,7 @@ const TeacherAttendance = () => {
                     className="btn-start-blue" 
                     onClick={handleStartAttendance}
                     disabled={submitting || courses.length === 0}
-                    style={{ opacity: submitting ? 0.7 : 1 }}
+                    style={{ opacity: submitting ? 0.7 : 1, padding: '10px 20px', border:'none', background:'#2196f3', color:'white', borderRadius:'6px', cursor:'pointer' }}
                    >
                      {submitting ? <><FaSpinner className="fa-spin" /> Başlatılıyor...</> : 'Yoklamayı Başlat'}
                    </button>

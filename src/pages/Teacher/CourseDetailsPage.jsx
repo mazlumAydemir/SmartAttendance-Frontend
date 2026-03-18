@@ -27,7 +27,7 @@ const CourseDetailsPage = () => {
     isAutoAttendanceEnabled: false,
     defaultMethod: 1, 
     defaultDurationMinutes: 30,
-    defaultRadiusMeters: 50
+    defaultRadiusMeters: 50 // Backend'e göndermek için state'te tutuyoruz ama ekranda göstermiyoruz
   });
   const [settingsLoading, setSettingsLoading] = useState(false);
 
@@ -50,14 +50,14 @@ const CourseDetailsPage = () => {
 
       // 0. TÜM KULLANICILARI ÇEK
       try {
-        const usersRes = await axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Auth/all-users', config);
+        const usersRes = await axios.get('https://localhost:7022/api/Auth/all-users', config);
         setAllUsers(usersRes.data);
       } catch (e) {
         console.warn("Tüm kullanıcılar çekilemedi.");
       }
 
       // 1. DERS ADINI BUL
-      const coursesRes = await axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/my-courses', config);
+      const coursesRes = await axios.get('https://localhost:7022/api/Attendance/my-courses', config);
       const currentCourse = coursesRes.data.find(c => c.id.toString() === courseId);
       
       let targetCourseName = "";
@@ -70,30 +70,24 @@ const CourseDetailsPage = () => {
       // 2. ÖĞRENCİ İSTATİSTİKLERİ
       let validStudentIds = [];
       try {
-        const statsRes = await axios.get(`https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/instructor/course-stats/${courseId}`, config);
+        const statsRes = await axios.get(`https://localhost:7022/api/Attendance/instructor/course-stats/${courseId}`, config);
         setStudentStats(statsRes.data);
         validStudentIds = statsRes.data.map(s => s.studentId);
       } catch (e) { console.warn("İstatistik çekilemedi."); }
 
       // 3. GEÇMİŞ OTURUMLARI ÇEK
-      const sessionRes = await axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/instructor/history/sessions', config);
+      const sessionRes = await axios.get('https://localhost:7022/api/Attendance/instructor/history/sessions', config);
       
-      // 🚀 HATA BURADA ÇÖZÜLDÜ: sessionId == courseId mantığı SİLİNDİ! 
-      // Artık "Kesin ve sadece" ders isminin virgülle ayrılmış listede olmasına bakıyoruz.
       const filteredSessions = sessionRes.data.filter(session => {
         if (!targetCourseName || !session.courseNames) return false;
-        
-        // "CMPE419, BLGM419" gibi gelen yazıyı diziye çevir: ["CMPE419", "BLGM419"]
         const sessionCourseList = session.courseNames.split(',').map(name => name.trim());
-        
-        // Eğer bu dizi içinde bizim bulunduğumuz sayfanın ders kodu varsa kabul et.
         return sessionCourseList.includes(targetCourseName);
       });
 
       // 4. İSTATİSTİKLERİ SADECE BU DERS İÇİN HESAPLA
       const sessionsWithExactStats = await Promise.all(filteredSessions.map(async (session) => {
         try {
-          const detailRes = await axios.get(`https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/instructor/history/session-details/${session.sessionId}`, config);
+          const detailRes = await axios.get(`https://localhost:7022/api/Attendance/instructor/history/session-details/${session.sessionId}`, config);
           
           const courseStudentsInSession = detailRes.data.filter(student => validStudentIds.includes(student.studentId));
 
@@ -114,7 +108,7 @@ const CourseDetailsPage = () => {
 
       // 5. AYARLARI ÇEK
       try {
-        const settingsRes = await axios.get(`https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/instructor/course-settings/${courseId}`, config);
+        const settingsRes = await axios.get(`https://localhost:7022/api/Attendance/instructor/course-settings/${courseId}`, config);
         setSettings(settingsRes.data);
       } catch (e) { console.warn("Ayarlar çekilemedi."); }
 
@@ -129,7 +123,7 @@ const CourseDetailsPage = () => {
     setSettingsLoading(true);
     try {
       const token = localStorage.getItem('jwtToken');
-      await axios.put('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/instructor/course-settings/update', {
+      await axios.put('https://localhost:7022/api/Attendance/instructor/course-settings/update', {
         courseId: parseInt(courseId),
         ...settings,
         defaultMethod: parseInt(settings.defaultMethod)
@@ -144,14 +138,13 @@ const CourseDetailsPage = () => {
     }
   };
 
-  // --- MODALI AÇ VE ÖĞRENCİLERİ FİLTRELE ---
   const openAttendanceModal = async (session) => {
     setSelectedSessionInfo(session);
     setIsModalOpen(true);
     setModalLoading(true);
     try {
       const token = localStorage.getItem('jwtToken');
-      const response = await axios.get(`https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/instructor/history/session-details/${session.sessionId}`, {
+      const response = await axios.get(`https://localhost:7022/api/Attendance/instructor/history/session-details/${session.sessionId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -175,7 +168,7 @@ const CourseDetailsPage = () => {
 
     try {
       const token = localStorage.getItem('jwtToken');
-      await axios.post('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/update-status', {
+      await axios.post('https://localhost:7022/api/Attendance/update-status', {
         sessionId: selectedSessionInfo.sessionId, studentId, status: statusInt, description: "Manuel güncelleme"
       }, { headers: { Authorization: `Bearer ${token}` } });
     } catch (err) { alert("Hata: Güncellenemedi."); }
@@ -219,6 +212,7 @@ const CourseDetailsPage = () => {
           <div style={{ textAlign: 'center', padding: '50px' }}><FaSpinner className="spinner-animation" /> Yükleniyor...</div>
         ) : (
           <>
+            {/* 1. SINIF LİSTESİ */}
             <div className="student-list-card">
               <div className="list-header">
                 <FaUserGraduate style={{ color: '#555' }} />
@@ -262,6 +256,7 @@ const CourseDetailsPage = () => {
               </div>
             </div>
 
+            {/* 2. GEÇMİŞ YOKLAMALAR */}
             <div className="section-title">
                <FaHistory style={{ color: '#555' }} />
                <h3 style={{ margin: 0, fontSize: '18px' }}>Geçmiş Yoklamalar</h3>
@@ -272,7 +267,6 @@ const CourseDetailsPage = () => {
             ) : (
               <div className="sessions-grid">
                 {pastSessions.map((session) => {
-                  
                   const total = session.exactTotal || 0;
                   const attended = session.exactAttended || 0;
                   
@@ -310,10 +304,11 @@ const CourseDetailsPage = () => {
               </div>
             )}
 
+            {/* 3. AYARLAR (ÇİFT KOPYA SİLİNDİ, TEKE DÜŞÜRÜLDÜ VE YARIÇAP KALDIRILDI) */}
             <div className="settings-section">
               <div className="section-title">
-                 <FaCog style={{ color: '#555' }} />
-                 <h3 style={{ margin: 0, fontSize: '18px' }}>Otomatik Yoklama Yapılandırması</h3>
+                <FaCog style={{ color: '#555' }} />
+                <h3 style={{ margin: 0, fontSize: '18px' }}>Otomatik Yoklama Yapılandırması</h3>
               </div>
 
               <div className="settings-card">
@@ -343,7 +338,7 @@ const CourseDetailsPage = () => {
                       <label>Varsayılan Yöntem</label>
                       <select 
                         value={settings.defaultMethod} 
-                        onChange={(e) => setSettings({...settings, defaultMethod: e.target.value})}
+                        onChange={(e) => setSettings({...settings, defaultMethod: parseInt(e.target.value)})}
                         className="form-control"
                       >
                         <option value={1}>QR Kod</option>
@@ -353,24 +348,15 @@ const CourseDetailsPage = () => {
                     </div>
 
                     <div className="input-group">
-                      <label>Süre (Dakika)</label>
+                      <label>Yoklama Açık Kalma Süresi (Dakika)</label>
                       <input 
                         type="number" 
                         value={settings.defaultDurationMinutes}
                         onChange={(e) => setSettings({...settings, defaultDurationMinutes: parseInt(e.target.value)})}
                         className="form-control"
+                        placeholder="Örn: 15"
                       />
-                    </div>
-
-                    <div className="input-group">
-                      <label>Konum Yarıçapı (Metre)</label>
-                      <input 
-                        type="number" 
-                        value={settings.defaultRadiusMeters || 50}
-                        onChange={(e) => setSettings({...settings, defaultRadiusMeters: parseInt(e.target.value)})}
-                        className="form-control"
-                        disabled={parseInt(settings.defaultMethod) === 1}
-                      />
+                      <small style={{color: '#888'}}>Yoklama başladıktan kaç dakika sonra otomatik kapansın?</small>
                     </div>
                   </div>
 
@@ -382,14 +368,13 @@ const CourseDetailsPage = () => {
                     {settingsLoading ? <FaSpinner className="spinner-animation" /> : <FaSave />} 
                     Ayarları Kaydet
                   </button>
-
                 </div>
               </div>
             </div>
-
           </>
         )}
 
+        {/* MODAL PENCERESİ */}
         {isModalOpen && (
           <div className="modal-overlay">
             <div className="modal-content">

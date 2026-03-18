@@ -39,10 +39,10 @@ const StudentActiveAttendance = () => {
       const config = { headers: { 'Authorization': `Bearer ${token}` } };
       
       const [resQR, resLoc, resFace, resMyCourses] = await Promise.all([
-        axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/student/active-sessions/qr', config),
-        axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/student/active-sessions/location', config),
-        axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/student/active-sessions/face', config),
-        axios.get('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/student/my-courses', config)
+        axios.get('https://localhost:7022/api/Attendance/student/active-sessions/qr', config),
+        axios.get('https://localhost:7022/api/Attendance/student/active-sessions/location', config),
+        axios.get('https://localhost:7022/api/Attendance/student/active-sessions/face', config),
+        axios.get('https://localhost:7022/api/Attendance/student/my-courses', config)
       ]);
 
       const myCoursesList = resMyCourses.data;
@@ -120,7 +120,7 @@ const StudentActiveAttendance = () => {
     if (!token) return;
 
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl("https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/attendanceHub", {
+      .withUrl("https://localhost:7022/attendanceHub", {
         accessTokenFactory: () => token
       })
       .withAutomaticReconnect()
@@ -218,7 +218,7 @@ const StudentActiveAttendance = () => {
         longitude: location.longitude
       };
 
-      await axios.post('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/join-qr', payload, {
+      await axios.post('https://localhost:7022/api/Attendance/join-qr', payload, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -243,7 +243,7 @@ const StudentActiveAttendance = () => {
         latitude: location.latitude,
         longitude: location.longitude
       };
-      await axios.post('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/join-location', payload, {
+      await axios.post('https://localhost:7022/api/Attendance/join-location', payload, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       alert("✅ BAŞARILI: Konum doğrulandı, derse katıldınız!");
@@ -273,7 +273,7 @@ const StudentActiveAttendance = () => {
       formData.append('Longitude', location.longitude);
       formData.append('FaceImage', file);
 
-      await axios.post('https://smartattendancerg-c6epc3gfb0g8hcau.francecentral-01.azurewebsites.net/api/Attendance/join-face', formData, {
+      await axios.post('https://localhost:7022/api/Attendance/join-face', formData, {
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
