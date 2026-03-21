@@ -1,0 +1,240 @@
+.student-management-container {
+    padding: 15px;
+    background-color: #f8f9fa;
+    min-height: calc(100vh - 70px);
+}
+
+.sm-stats-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.sm-stat-box {
+    flex: 1;
+    background: #fff;
+    border-radius: 12px;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.sm-stat-label { font-size: 14px; color: #555; font-weight: 500; }
+.sm-stat-value { font-size: 22px; font-weight: bold; }
+.blue-text { color: #1976d2; }
+.green-text { color: #4caf50; }
+
+.sm-actions-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.sm-btn-filter {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #ddd;
+    color: #555;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.sm-btn-add {
+    flex: 1;
+    background: #1976d2;
+    border: none;
+    color: #fff;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(25, 118, 210, 0.2);
+}
+
+.sm-search-bar {
+    background: #fff;
+    border-radius: 8px;
+    padding: 12px 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+}
+
+.sm-search-icon { color: #888; }
+.sm-search-bar input {
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 14px;
+    color: #333;
+}
+
+.sm-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.sm-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 15px;
+    display: flex;
+    gap: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    position: relative;
+}
+
+.sm-card-avatar {
+    width: 55px;
+    height: 55px;
+    background-color: #e3f2fd;
+    color: #1976d2;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.sm-card-content { flex: 1; }
+
+.sm-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 4px;
+}
+
+.sm-student-name {
+    margin: 0;
+    font-size: 15px;
+    color: #333;
+    font-weight: 600;
+}
+
+.sm-badge {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.sm-badge.active {
+    border: 1px solid #4caf50;
+    color: #4caf50;
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.sm-badge.inactive {
+    border: 1px solid #f44336;
+    color: #f44336;
+    background: rgba(244, 67, 54, 0.1);
+}
+
+.sm-student-id {
+    color: #1976d2;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.sm-student-footer {
+    display: flex;
+    gap: 15px;
+    font-size: 12px;
+    color: #777;
+}
+
+.sm-footer-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.sm-card-options {
+    color: #999;
+    cursor: pointer;
+    padding: 5px;
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.sm-loading, .sm-no-data {
+    text-align: center;
+    padding: 30px;
+    color: #666;
+    font-style: italic;
+}
+/* MODAL STİLLERİ */
+.sm-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.sm-modal-box {
+    background: #fff;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 450px;
+    padding: 20px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.sm-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.sm-modal-header h2 { margin: 0; font-size: 18px; color: #333; }
+.sm-modal-close { cursor: pointer; font-size: 18px; color: #888; }
+
+.sm-form-group { margin-bottom: 15px; }
+.sm-form-group label {
+    display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 5px;
+}
+.sm-form-group input, .sm-form-group select {
+    width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; outline: none; background: #fff;
+}
+.sm-form-group input:focus, .sm-form-group select:focus { border-color: #1976d2; }
+.sm-form-group select:disabled { background-color: #f5f5f5; cursor: not-allowed; }
+
+.sm-modal-footer {
+    display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px;
+}
+
+.sm-btn-cancel {
+    background: #f1f1f1; color: #555; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;
+}
+
+.sm-btn-submit {
+    background: #1976d2; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px;
+}
+.sm-btn-submit:disabled { opacity: 0.7; cursor: not-allowed; }

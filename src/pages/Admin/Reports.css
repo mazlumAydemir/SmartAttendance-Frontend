@@ -1,0 +1,84 @@
+.reports-container {
+    padding: 20px 15px;
+    background-color: #f8f9fa;
+    min-height: calc(100vh - 70px);
+}
+
+.reports-header-text {
+    margin-bottom: 25px;
+}
+
+.reports-header-text h2 {
+    margin: 0 0 5px 0;
+    font-size: 20px;
+    color: #333;
+}
+
+.reports-header-text p {
+    margin: 0;
+    font-size: 14px;
+    color: #777;
+}
+
+.reports-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.report-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 20px 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.report-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.report-icon-box {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.report-content h3 {
+    margin: 0 0 4px 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #444;
+}
+
+.report-content p {
+    margin: 0;
+    font-size: 13px;
+    color: #888;
+}
+
+/* Renk Paletleri (Tasarımdaki Pastel Tonlar) */
+.box-blue { background-color: #e3f2fd; }
+.icon-blue { color: #1976d2; }
+
+.box-cyan { background-color: #e0f7fa; }
+.icon-cyan { color: #00acc1; }
+
+.box-purple { background-color: #f3e5f5; }
+.icon-purple { color: #8e24aa; }
+
+.box-orange { background-color: #fff3e0; }
+.icon-orange { color: #ff9800; }
+
+.box-pink { background-color: #fce4ec; }
+.icon-pink { color: #d81b60; }

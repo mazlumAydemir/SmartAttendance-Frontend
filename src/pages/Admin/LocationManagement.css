@@ -1,0 +1,25 @@
+.location-management-container { padding: 20px; background-color: #f8f9fa; min-height: calc(100vh - 70px); }
+.lm-actions-row { display: flex; justify-content: flex-end; margin-bottom: 20px; }
+.lm-btn-add { background: #e91e63; color: #fff; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(233, 30, 99, 0.2); }
+.lm-info-banner { background: #e3f2fd; color: #1565c0; padding: 12px 15px; border-radius: 8px; font-size: 14px; margin-bottom: 20px; border-left: 4px solid #1976d2; }
+.lm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+.lm-card { background: #fff; border-radius: 12px; padding: 20px; display: flex; gap: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-bottom: 4px solid #e91e63; }
+.lm-card-icon { background: #fce4ec; color: #e91e63; width: 50px; height: 50px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 22px; flex-shrink: 0; }
+.lm-card-content h3 { margin: 0 0 10px 0; font-size: 16px; color: #333; }
+.lm-card-content p { margin: 0 0 5px 0; font-size: 13px; color: #555; }
+.lm-radius-badge { margin-top: 10px; display: inline-block; background: #eee; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; color: #555; }
+.lm-loading, .lm-no-data { text-align: center; padding: 30px; color: #666; font-style: italic; grid-column: 1 / -1; }
+
+/* MODAL STYLES */
+.lm-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+.lm-modal-box { background: #fff; border-radius: 12px; width: 90%; max-width: 450px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+.lm-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+.lm-modal-header h2 { margin: 0; font-size: 18px; color: #333; }
+.lm-modal-close { cursor: pointer; font-size: 18px; color: #888; }
+.lm-form-group { margin-bottom: 15px; }
+.lm-form-group label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 5px; }
+.lm-form-group input { width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; outline: none; }
+.lm-form-group input:focus { border-color: #e91e63; }
+.lm-modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+.lm-btn-cancel { background: #f1f1f1; color: #555; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+.lm-btn-submit { background: #e91e63; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }

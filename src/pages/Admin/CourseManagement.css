@@ -1,0 +1,181 @@
+.course-management-container {
+    padding: 15px;
+    background-color: #f8f9fa;
+    min-height: calc(100vh - 70px);
+}
+
+.cm-actions-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.cm-btn-filter {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #ddd;
+    color: #555;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.cm-btn-add {
+    flex: 1;
+    background: #1976d2;
+    border: none;
+    color: #fff;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(25, 118, 210, 0.2);
+}
+
+.cm-search-bar {
+    background: #fff;
+    border-radius: 8px;
+    padding: 12px 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+}
+
+.cm-search-icon { color: #888; }
+.cm-search-bar input {
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 14px;
+    color: #333;
+}
+
+.cm-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.cm-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 18px 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    /* Sol taraftaki renkli çizgi için hazırlık */
+    border-left: 4px solid transparent; 
+}
+
+.cm-course-name {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    color: #333;
+    font-weight: 700;
+}
+
+.cm-course-code {
+    color: #777;
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
+.cm-course-footer {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.cm-student-count {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #666;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.cm-users-icon {
+    font-size: 15px;
+    color: #888;
+}
+
+.cm-badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.cm-badge.active {
+    color: #4caf50;
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.cm-badge.inactive {
+    color: #f44336;
+    background: rgba(244, 67, 54, 0.1);
+}
+
+.cm-loading, .cm-no-data {
+    text-align: center;
+    padding: 30px;
+    color: #666;
+    font-style: italic;
+}/* --- YENİ EKLENEN BUTON VE MODAL STİLLERİ --- */
+.cm-btn-assign {
+    background: #e3f2fd;
+    color: #1976d2;
+    border: none;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    transition: background 0.2s;
+}
+.cm-btn-assign:hover { background: #bbdefb; }
+
+.cm-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+.cm-modal-box { background: #fff; border-radius: 12px; width: 90%; max-width: 450px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-height: 90vh; overflow-y: auto; }
+.cm-modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+.cm-modal-header h2 { margin: 0; font-size: 18px; color: #333; line-height: 1.4; }
+.cm-modal-close { cursor: pointer; font-size: 18px; color: #888; }
+.cm-form-group { margin-bottom: 15px; }
+.cm-form-group label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 5px; }
+.cm-form-group input, .cm-form-group select { width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; outline: none; background: #fff; }
+.cm-form-group input:focus, .cm-form-group select:focus { border-color: #1976d2; }
+.cm-modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+.cm-btn-cancel { background: #f1f1f1; color: #555; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+.cm-btn-submit { background: #1976d2; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+
+/* CHECKBOX LİSTESİ STİLLERİ */
+.cm-student-checklist { max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; padding: 10px; }
+.cm-checkbox-row { display: flex; align-items: center; gap: 10px; padding: 8px; border-bottom: 1px solid #f5f5f5; cursor: pointer; }
+.cm-checkbox-row:last-child { border-bottom: none; }
+.cm-checkbox-row input { width: 16px; height: 16px; cursor: pointer; }
+.cm-checkbox-row span { font-size: 14px; color: #333; }
+.cm-checkbox-row small { color: #888; margin-left: 5px; }
+.cm-btn-schedule {
+    background: #fff3e0;
+    color: #ff9800;
+    border: none;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    transition: background 0.2s;
+}
+.cm-btn-schedule:hover { background: #ffe0b2; }

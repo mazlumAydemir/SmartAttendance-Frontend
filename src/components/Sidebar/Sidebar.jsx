@@ -1,7 +1,8 @@
 import React from 'react';
 import { 
   FaHome, FaChalkboardTeacher, FaUserGraduate, FaBookOpen, FaClipboardList, 
-  FaCalendarAlt, FaCog, FaTimes, FaChartBar, FaClock, FaUser, FaCheckCircle, FaEdit 
+  FaCalendarAlt, FaCog, FaTimes, FaChartBar, FaClock, FaUser, FaCheckCircle, FaEdit,
+  FaMapMarkerAlt // <-- YENİ İKON EKLENDİ
 } from 'react-icons/fa';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Sidebar.css';
@@ -17,8 +18,13 @@ const Sidebar = ({ isOpen, toggleSidebar, role = 'admin' }) => {
 
   // --- LİNKLER ---
   const adminLinks = [
-    { icon: <FaHome />, text: 'Ana Sayfa', path: '/admin/home' },
-    // ... admin linkleri
+    { icon: <FaHome />, text: 'Ana Sayfa', path: '/admin/dashboard' }, 
+    { icon: <FaChalkboardTeacher />, text: 'Öğretmenler', path: '/admin/teachers' }, 
+    { icon: <FaUserGraduate />, text: 'Öğrenciler', path: '/admin/students' },
+    { icon: <FaBookOpen />, text: 'Kurslar', path: '/admin/courses' },
+    { icon: <FaMapMarkerAlt />, text: 'Lokasyonlar', path: '/admin/locations' }, // <-- YENİ MENÜ EKLENDİ
+    { icon: <FaChartBar />, text: 'Raporlar', path: '/admin/reports' },
+    { icon: <FaCog />, text: 'Ayarlar', path: '/admin/settings' },
   ];
 
   const teacherLinks = [
@@ -40,6 +46,7 @@ const Sidebar = ({ isOpen, toggleSidebar, role = 'admin' }) => {
     { icon: <FaCalendarAlt />, text: 'Akademik Takvim', path: '/student/calendar' },
   ];
 
+  // Hangi rol ile girildiyse o menüyü göster
   let linksToShow = adminLinks;
   if (role === 'teacher') linksToShow = teacherLinks;
   if (role === 'student') linksToShow = studentLinks;
@@ -69,6 +76,7 @@ const Sidebar = ({ isOpen, toggleSidebar, role = 'admin' }) => {
               className={`menu-item ${isActive ? 'active' : ''}`}
               onClick={() => {
                 navigate(link.path);
+                // Mobilde tıklanınca menüyü otomatik kapat
                 if(window.innerWidth < 768) toggleSidebar();
               }}
             >
@@ -77,7 +85,6 @@ const Sidebar = ({ isOpen, toggleSidebar, role = 'admin' }) => {
             </li>
           );
         })}
-        {/* ÇIKIŞ BUTONU BURADAN SİLİNDİ */}
       </ul>
     </div>
   );

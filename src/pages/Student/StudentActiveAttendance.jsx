@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { FaSignOutAlt, FaQrcode, FaSmile, FaMapMarkerAlt, FaTimes, FaSpinner, FaCheckCircle, FaCamera, FaClock } from 'react-icons/fa';
+import { FaSignOutAlt, FaQrcode, FaMapMarkerAlt, FaTimes, FaSpinner, FaCheckCircle, FaClock } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import Webcam from "react-webcam";
 import jsQR from "jsqr";
@@ -29,7 +29,7 @@ const StudentActiveAttendance = () => {
   const [cameraLoading, setCameraLoading] = useState(true);
   const [scanResult, setScanResult] = useState(null); 
 
-  // 1. VERİ ÇEKME FONKSİYONU
+  // 1. VERİ ÇEKME FONKSİYONU (Yüz Tanıma Kaldırıldı, safeFetch eklendi)
   const fetchAllActiveSessions = useCallback(async () => {
     try {
       setFetchingSessions(true);
@@ -38,14 +38,19 @@ const StudentActiveAttendance = () => {
 
       const config = { headers: { 'Authorization': `Bearer ${token}` } };
       
-      const [resQR, resLoc, resFace, resMyCourses] = await Promise.all([
-        axios.get('https://localhost:7022/api/Attendance/student/active-sessions/qr', config),
-        axios.get('https://localhost:7022/api/Attendance/student/active-sessions/location', config),
-        axios.get('https://localhost:7022/api/Attendance/student/active-sessions/face', config),
-        axios.get('https://localhost:7022/api/Attendance/student/my-courses', config)
+      // Herhangi bir API hata verirse çökmek yerine boş dizi döndürür
+      const safeFetch = (url) => axios.get(url, config).catch(err => {
+          console.warn(`[UYARI] ${url} çekilemedi:`, err.message);
+          return { data: [] }; 
+      });
+
+      const [resQR, resLoc, resMyCourses] = await Promise.all([
+        safeFetch('https://localhost:7022/api/Attendance/student/active-sessions/qr'),
+        safeFetch('https://localhost:7022/api/Attendance/student/active-sessions/location'),
+        safeFetch('https://localhost:7022/api/Attendance/student/my-courses')
       ]);
 
-      const myCoursesList = resMyCourses.data;
+      const myCoursesList = Array.isArray(resMyCourses.data) ? resMyCourses.data : [];
 
       const formatSession = (item, methodType, enumValue) => {
           const sessionCodes = item.courseCode ? item.courseCode.split(',').map(s => s.trim()) : [];
@@ -60,13 +65,12 @@ const StudentActiveAttendance = () => {
           };
       };
 
-      const listQR = resQR.data.map(item => formatSession(item, 'QrCode', 1));
-      const listLoc = resLoc.data.map(item => formatSession(item, 'Location', 2));
-      const listFace = resFace.data.map(item => formatSession(item, 'FaceScan', 3));
+      const listQR = Array.isArray(resQR.data) ? resQR.data.map(item => formatSession(item, 'QrCode', 1)) : [];
+      const listLoc = Array.isArray(resLoc.data) ? resLoc.data.map(item => formatSession(item, 'Location', 2)) : [];
 
-      setActiveSessions([...listQR, ...listLoc, ...listFace]);
+      setActiveSessions([...listQR, ...listLoc]);
     } catch (err) {
-      console.error("Oturumlar çekilemedi:", err);
+      console.error("Genel bir hata oluştu:", err);
     } finally {
       setFetchingSessions(false);
     }
@@ -256,40 +260,6 @@ const StudentActiveAttendance = () => {
     }
   };
 
-  const handleJoinFace = async () => {
-    const imageSrc = webcamRef.current.getScreenshot();
-    if (!imageSrc) { alert("Fotoğraf çekilemedi!"); return; }
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('jwtToken');
-      const res = await fetch(imageSrc);
-      const blob = await res.blob();
-      const file = new File([blob], "face.jpg", { type: "image/jpeg" });
-
-      const formData = new FormData();
-      formData.append('SessionId', selectedSession.sessionId);
-      formData.append('DeviceId', deviceId);
-      formData.append('Latitude', location.latitude);
-      formData.append('Longitude', location.longitude);
-      formData.append('FaceImage', file);
-
-      await axios.post('https://localhost:7022/api/Attendance/join-face', formData, {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-      alert("✅ BAŞARILI: Yüz doğrulama başarılı!");
-      handleCloseModal();
-      fetchAllActiveSessions();
-    } catch (err) {
-      console.error(err);
-      alert("❌ HATA: " + (err.response?.data?.message || "Başarısız."));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const formatPeriod = (startDateString) => {
     const start = new Date(startDateString);
     const end = new Date(start.getTime() + 50 * 60000); 
@@ -325,9 +295,8 @@ const StudentActiveAttendance = () => {
             <div key={`${session.sessionId}-${session.methodType}-${index}`} className="session-card-student">
               <div className={`method-badge ${session.methodType.toLowerCase()}`}>
                 {session.methodType === 'QrCode' && <FaQrcode />}
-                {session.methodType === 'FaceScan' && <FaSmile />}
                 {session.methodType === 'Location' && <FaMapMarkerAlt />}
-                <span>{session.methodType === 'QrCode' ? 'QR Kod' : session.methodType === 'FaceScan' ? 'Yüz Tanıma' : 'Konum'}</span>
+                <span>{session.methodType === 'QrCode' ? 'QR Kod' : 'Konum'}</span>
               </div>
               
               <h3>{session.displayCode}</h3>
@@ -355,7 +324,6 @@ const StudentActiveAttendance = () => {
 
       {modalOpen && selectedSession && (
         <div className="modal-overlay" onClick={handleCloseModal}>
-          {/* Modal kutusu, tıklandığında kapanmasını önlemek için stopPropagation kullanılıyor */}
           <div className="attendance-modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 style={{ margin: 0, fontSize: '18px' }}>Yoklamaya Katıl: {selectedSession.displayCode}</h3>
@@ -390,28 +358,6 @@ const StudentActiveAttendance = () => {
                     
                     <div className="qr-overlay" style={{ borderColor: scanResult ? '#4caf50' : 'rgba(255,255,255,0.7)' }}></div>
                   </div>
-                  
-                  {/* MANUEL GİRİŞ VE BUTON SİLİNDİ */}
-                </div>
-              )}
-
-              {selectedSession.methodType === 'FaceScan' && (
-                <div className="camera-container">
-                  <p className="instruction">Yüzünüzü çerçevenin içine getirin</p>
-                  
-                  <div className="camera-wrapper circle-mask">
-                    <Webcam
-                      audio={false}
-                      ref={webcamRef}
-                      screenshotFormat="image/jpeg"
-                      videoConstraints={{ facingMode: "user" }} 
-                      className="webcam-view"
-                    />
-                  </div>
-                  
-                  <button className="btn-action" onClick={handleJoinFace} disabled={loading}>
-                    {loading ? <FaSpinner className="fa-spin" /> : <><FaCamera /> Fotoğraf Çek ve Katıl</>}
-                  </button>
                 </div>
               )}
 

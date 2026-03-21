@@ -1,0 +1,131 @@
+.admin-dashboard-container {
+    padding: 15px;
+    background-color: #f8f9fa; /* Tasarımdaki hafif gri arka plan */
+    min-height: calc(100vh - 70px);
+}
+
+/* Üst Profil Kartı */
+.admin-profile-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    margin-bottom: 25px;
+}
+
+.admin-profile-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.admin-avatar {
+    background-color: #1976d2;
+    color: white;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+}
+
+.admin-info h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+}
+
+.admin-info p {
+    margin: 2px 0 0 0;
+    font-size: 13px;
+    color: #777;
+}
+
+.badge-active {
+    background-color: #4caf50;
+    color: white;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+/* Başlık */
+.section-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+/* Grid Yapısı */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Mobilde yan yana 2 kart */
+    gap: 15px;
+}
+
+/* Tekil Kart Yapısı */
+.stat-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-icon {
+    font-size: 20px;
+    margin-bottom: 30px; /* Numara ile ikon arası boşluk */
+}
+
+.stat-number {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 22px;
+    font-weight: bold;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #666;
+    font-weight: 500;
+}
+
+/* İkon ve Sayı Renkleri (Tasarımdaki gibi) */
+.orange { color: #ff9800; }
+.orange-text { color: #ff9800; }
+
+.purple { color: #9c27b0; }
+.purple-text { color: #9c27b0; }
+
+.dark-purple { color: #8e24aa; }
+.dark-purple-text { color: #8e24aa; }
+
+.teal { color: #00acc1; }
+.teal-text { color: #00acc1; }
+
+.blue { color: #1976d2; }
+.blue-text { color: #1976d2; }
+
+.green { color: #4caf50; }
+.green-text { color: #4caf50; }
+
+.red { color: #f44336; }
+.red-text { color: #f44336; }
+
+.loading-spinner {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    font-weight: bold;
+}
