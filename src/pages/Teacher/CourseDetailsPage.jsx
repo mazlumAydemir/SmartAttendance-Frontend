@@ -50,14 +50,14 @@ const CourseDetailsPage = () => {
 
       // 0. TÜM KULLANICILARI ÇEK
       try {
-        const usersRes = await axios.get('https://localhost:7022/api/Auth/all-users', config);
+        const usersRes = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Auth/all-users', config);
         setAllUsers(usersRes.data);
       } catch (e) {
         console.warn("Tüm kullanıcılar çekilemedi.");
       }
 
       // 1. DERS ADINI BUL
-      const coursesRes = await axios.get('https://localhost:7022/api/Attendance/my-courses', config);
+      const coursesRes = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/my-courses', config);
       const currentCourse = coursesRes.data.find(c => c.id.toString() === courseId);
       
       let targetCourseName = "";
@@ -70,13 +70,13 @@ const CourseDetailsPage = () => {
       // 2. ÖĞRENCİ İSTATİSTİKLERİ
       let validStudentIds = [];
       try {
-        const statsRes = await axios.get(`https://localhost:7022/api/Attendance/instructor/course-stats/${courseId}`, config);
+        const statsRes = await axios.get(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/course-stats/${courseId}`, config);
         setStudentStats(statsRes.data);
         validStudentIds = statsRes.data.map(s => s.studentId);
       } catch (e) { console.warn("İstatistik çekilemedi."); }
 
       // 3. GEÇMİŞ OTURUMLARI ÇEK
-      const sessionRes = await axios.get('https://localhost:7022/api/Attendance/instructor/history/sessions', config);
+      const sessionRes = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/history/sessions', config);
       
       const filteredSessions = sessionRes.data.filter(session => {
         if (!targetCourseName || !session.courseNames) return false;
@@ -87,7 +87,7 @@ const CourseDetailsPage = () => {
       // 4. İSTATİSTİKLERİ SADECE BU DERS İÇİN HESAPLA
       const sessionsWithExactStats = await Promise.all(filteredSessions.map(async (session) => {
         try {
-          const detailRes = await axios.get(`https://localhost:7022/api/Attendance/instructor/history/session-details/${session.sessionId}`, config);
+          const detailRes = await axios.get(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/history/session-details/${session.sessionId}`, config);
           
           const courseStudentsInSession = detailRes.data.filter(student => validStudentIds.includes(student.studentId));
 
@@ -108,7 +108,7 @@ const CourseDetailsPage = () => {
 
       // 5. AYARLARI ÇEK
       try {
-        const settingsRes = await axios.get(`https://localhost:7022/api/Attendance/instructor/course-settings/${courseId}`, config);
+        const settingsRes = await axios.get(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/course-settings/${courseId}`, config);
         setSettings(settingsRes.data);
       } catch (e) { console.warn("Ayarlar çekilemedi."); }
 
@@ -123,7 +123,7 @@ const CourseDetailsPage = () => {
     setSettingsLoading(true);
     try {
       const token = localStorage.getItem('jwtToken');
-      await axios.put('https://localhost:7022/api/Attendance/instructor/course-settings/update', {
+      await axios.put('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/course-settings/update', {
         courseId: parseInt(courseId),
         ...settings,
         defaultMethod: parseInt(settings.defaultMethod)
@@ -144,7 +144,7 @@ const CourseDetailsPage = () => {
     setModalLoading(true);
     try {
       const token = localStorage.getItem('jwtToken');
-      const response = await axios.get(`https://localhost:7022/api/Attendance/instructor/history/session-details/${session.sessionId}`, {
+      const response = await axios.get(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/history/session-details/${session.sessionId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -168,7 +168,7 @@ const CourseDetailsPage = () => {
 
     try {
       const token = localStorage.getItem('jwtToken');
-      await axios.post('https://localhost:7022/api/Attendance/update-status', {
+      await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/update-status', {
         sessionId: selectedSessionInfo.sessionId, studentId, status: statusInt, description: "Manuel güncelleme"
       }, { headers: { Authorization: `Bearer ${token}` } });
     } catch (err) { alert("Hata: Güncellenemedi."); }

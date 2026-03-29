@@ -57,7 +57,7 @@ const StudentSchedule = () => {
         setLoading(true);
         const token = localStorage.getItem('jwtToken');
         
-        const response = await axios.get('https://localhost:7022/api/Course/my-timetable', {
+        const response = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Course/my-timetable', {
           headers: { Authorization: `Bearer ${token}` }
         });
 

@@ -27,8 +27,8 @@ const TeacherReports = () => {
 
       // İki isteği aynı anda atıyoruz (Performans için)
       const [activeRes, historyRes] = await Promise.all([
-        axios.get('https://localhost:7022/api/Attendance/my-active-sessions', config),
-        axios.get('https://localhost:7022/api/Attendance/instructor/history/sessions', config)
+        axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/my-active-sessions', config),
+        axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/history/sessions', config)
       ]);
 
       // --- VERİ DÜZENLEME (NORMALİZASYON) ---
@@ -83,7 +83,7 @@ const TeacherReports = () => {
     try {
       const token = localStorage.getItem('jwtToken');
       // Backend: AttendanceController > EndSession
-      await axios.post(`https://localhost:7022/api/Attendance/end/${sessionId}`, {}, {
+      await axios.post(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/end/${sessionId}`, {}, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -108,7 +108,7 @@ const TeacherReports = () => {
     if (!token) return;
 
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl("https://localhost:7022/attendanceHub", {
+      .withUrl("https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/attendanceHub", {
         accessTokenFactory: () => token
       })
       .withAutomaticReconnect()
@@ -179,7 +179,7 @@ const TeacherReports = () => {
       try {
         const token = localStorage.getItem('jwtToken');
         // Backend: AttendanceController > GetFullClassList
-        const response = await axios.get(`https://localhost:7022/api/Attendance/full-class-list/${sessionId}`, {
+        const response = await axios.get(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/full-class-list/${sessionId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         setSessionStudents(response.data);
@@ -211,7 +211,7 @@ const TeacherReports = () => {
       const token = localStorage.getItem('jwtToken');
       
       // 2. Backend'e gönder
-      await axios.post('https://localhost:7022/api/Attendance/update-status', 
+      await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/update-status', 
         {
           sessionId: expandedReportId,
           studentId: studentId,

@@ -79,7 +79,7 @@ const TeacherAttendance = () => {
         const token = localStorage.getItem('jwtToken');
         if (!token) return;
 
-        const response = await axios.get('https://localhost:7022/api/Attendance/my-courses', {
+        const response = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/my-courses', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -192,7 +192,7 @@ const TeacherAttendance = () => {
         startTime: finalDateTime 
       };
 
-      const response = await axios.post('https://localhost:7022/api/attendance/start', payload, {
+      const response = await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/attendance/start', payload, {
         headers: { 
           'Authorization': `Bearer ${token}`, 
           'Content-Type': 'application/json' 
@@ -240,7 +240,7 @@ const TeacherAttendance = () => {
               formData.append('frame', imageFile);
 
               const token = localStorage.getItem('jwtToken');
-              const response = await axios.post('https://localhost:7022/api/Attendance/instructor/scan-crowd', formData, {
+              const response = await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/scan-crowd', formData, {
                   headers: {
                       'Content-Type': 'multipart/form-data',
                       'Authorization': `Bearer ${token}`

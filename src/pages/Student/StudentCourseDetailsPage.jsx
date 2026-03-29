@@ -24,13 +24,13 @@ const StudentCourseDetailsPage = () => {
       const token = localStorage.getItem('jwtToken');
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
-      const coursesRes = await axios.get('https://localhost:7022/api/Attendance/student/my-courses', config);
+      const coursesRes = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/student/my-courses', config);
       const currentCourse = coursesRes.data.find(c => c.id.toString() === courseId.toString());
       if (currentCourse) {
         setCourseInfo({ name: currentCourse.courseName, code: currentCourse.courseCode });
       }
 
-      const historyRes = await axios.get(`https://localhost:7022/api/Attendance/student/history/${courseId}`, config);
+      const historyRes = await axios.get(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/student/history/${courseId}`, config);
       setHistory(historyRes.data);
       calculateStats(historyRes.data);
 

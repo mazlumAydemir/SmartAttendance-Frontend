@@ -45,9 +45,9 @@ const StudentActiveAttendance = () => {
       });
 
       const [resQR, resLoc, resMyCourses] = await Promise.all([
-        safeFetch('https://localhost:7022/api/Attendance/student/active-sessions/qr'),
-        safeFetch('https://localhost:7022/api/Attendance/student/active-sessions/location'),
-        safeFetch('https://localhost:7022/api/Attendance/student/my-courses')
+        safeFetch('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/student/active-sessions/qr'),
+        safeFetch('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/student/active-sessions/location'),
+        safeFetch('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/student/my-courses')
       ]);
 
       const myCoursesList = Array.isArray(resMyCourses.data) ? resMyCourses.data : [];
@@ -124,7 +124,7 @@ const StudentActiveAttendance = () => {
     if (!token) return;
 
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl("https://localhost:7022/attendanceHub", {
+      .withUrl("https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/attendanceHub", {
         accessTokenFactory: () => token
       })
       .withAutomaticReconnect()
@@ -222,7 +222,7 @@ const StudentActiveAttendance = () => {
         longitude: location.longitude
       };
 
-      await axios.post('https://localhost:7022/api/Attendance/join-qr', payload, {
+      await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/join-qr', payload, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -247,7 +247,7 @@ const StudentActiveAttendance = () => {
         latitude: location.latitude,
         longitude: location.longitude
       };
-      await axios.post('https://localhost:7022/api/Attendance/join-location', payload, {
+      await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/join-location', payload, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       alert("✅ BAŞARILI: Konum doğrulandı, derse katıldınız!");
