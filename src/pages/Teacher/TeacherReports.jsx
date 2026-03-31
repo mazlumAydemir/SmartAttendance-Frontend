@@ -5,6 +5,7 @@ import './TeacherReports.css';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import * as signalR from '@microsoft/signalr';
+
 const TeacherReports = () => {
   const navigate = useNavigate();
   
@@ -100,7 +101,8 @@ const TeacherReports = () => {
       alert("❌ İşlem başarısız: " + (error.response?.data?.message || error.message));
     }
   };
-// =========================================================
+
+  // =========================================================
   // 🚀 SIGNALR 1. AŞAMA: ANA BAĞLANTIYI KUR
   // =========================================================
   useEffect(() => {
@@ -142,15 +144,19 @@ const TeacherReports = () => {
 
       console.log(`[SignalR] ${expandedReportId} numaralı dersin odasına girildi. Canlı yoklama izleniyor...`);
 
-      // 2. Öğrenci katıldığında tetiklenecek fonksiyon
+      // 2. Öğrenci katıldığında tetiklenecek fonksiyon (YAPAY ZEKA BURAYA DÜŞECEK)
       const handleStudentAttended = (data) => {
-        console.log(`[SignalR] Öğrenci Katıldı! ID: ${data.studentId}, Durum: ${data.status}`);
+        // GARANTİ KONTROL: Backend'den property'ler büyük veya küçük harfle gelebilir.
+        const incomingId = data.studentId || data.StudentId;
+        const incomingStatus = data.status || data.Status;
+
+        console.log(`[SignalR] Öğrenci Katıldı! ID: ${incomingId}, Durum: ${incomingStatus}`);
         
         // Listede o öğrenciyi bul ve rengini anında değiştir!
         setSessionStudents(prevStudents => 
           prevStudents.map(student => 
-            student.studentId === data.studentId 
-              ? { ...student, status: data.status } 
+            student.studentId === incomingId 
+              ? { ...student, status: incomingStatus } 
               : student
           )
         );
@@ -168,6 +174,7 @@ const TeacherReports = () => {
       };
     }
   }, [hubConnection, expandedReportId]);
+
   // 3. LİSTEYİ AÇ/KAPAT VE ÖĞRENCİLERİ ÇEK
   const toggleExpand = async (sessionId) => {
     if (expandedReportId === sessionId) {
