@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FaSignOutAlt, FaList, FaStopCircle, FaInfoCircle, FaCalendarAlt, FaClock, FaCalendarDay, FaSpinner, FaHistory, FaBroadcastTower } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './TeacherReports.css';
@@ -20,7 +20,8 @@ const TeacherReports = () => {
   const [hubConnection, setHubConnection] = useState(null);
 
   // 1. VERİLERİ ÇEK VE BİRLEŞTİR (Aktif + Geçmiş)
-  const fetchAllData = async () => {
+  // 🔥 DÜZELTME: SignalR içinden güvenle çağırabilmek için useCallback içine alındı
+  const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('jwtToken');
@@ -70,11 +71,11 @@ const TeacherReports = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [fetchAllData]);
 
   // 2. OTURUMU DURDURMA İŞLEMİ
   const handleStopSession = async (sessionId) => {
@@ -105,15 +106,13 @@ const TeacherReports = () => {
   // =========================================================
   // 🚀 SIGNALR 1. AŞAMA: ANA BAĞLANTIYI KUR
   // =========================================================
-  // =========================================================
-  // 🚀 SIGNALR 1. AŞAMA: ANA BAĞLANTIYI KUR
-  // =========================================================
   useEffect(() => {
     const token = localStorage.getItem('jwtToken');
     if (!token) return;
 
+    // 🔥 DÜZELTME: URL senin Azure adresine çekildi!
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl("https://localhost:7022/attendanceHub", {
+      .withUrl("https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/attendanceHub", {
         accessTokenFactory: () => token
       })
       .withAutomaticReconnect()
@@ -129,7 +128,7 @@ const TeacherReports = () => {
           setReports(prev => prev.map(r => r.sessionId === sessionId ? { ...r, isActive: false } : r));
         });
 
-        // 2. YENİ EKLENEN: YENİ YOKLAMA BAŞLATILIRSA LİSTEYİ TAZELE! 🔥
+        // 2. 🔥 YENİ EKLENEN: YENİ YOKLAMA BAŞLATILIRSA LİSTEYİ TAZELE!
         connection.on("SessionStarted", () => {
           console.log("[SignalR] Yeni oturum açıldı, liste güncelleniyor...");
           fetchAllData(); // Yeni ders eklendiği an API'den listeyi tazeleyip en üste koyar
@@ -140,7 +139,7 @@ const TeacherReports = () => {
     return () => {
         connection.stop();
     };
-  }, []); // Eğer fetchAllData bağımlılık (dependency) uyarısı verirse, fetchAllData fonksiyonunu useCallback içine alabilirsin.
+  }, [fetchAllData]);
 
   // =========================================================
   // 🚀 SIGNALR 2. AŞAMA: ODAYA GİR VE CANLI YOKLAMAYI İZLE
@@ -157,7 +156,7 @@ const TeacherReports = () => {
 
       // 2. Öğrenci katıldığında tetiklenecek fonksiyon (YAPAY ZEKA BURAYA DÜŞECEK)
       const handleStudentAttended = (data) => {
-        // GARANTİ KONTROL: Backend'den property'ler büyük veya küçük harfle gelebilir.
+        // 🔥 DÜZELTME: Backend'den büyük harfle gelme ihtimaline karşı garanti kontrol
         const incomingId = data.studentId || data.StudentId;
         const incomingStatus = data.status || data.Status;
 
