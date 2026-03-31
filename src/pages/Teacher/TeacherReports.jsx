@@ -105,12 +105,15 @@ const TeacherReports = () => {
   // =========================================================
   // 🚀 SIGNALR 1. AŞAMA: ANA BAĞLANTIYI KUR
   // =========================================================
+  // =========================================================
+  // 🚀 SIGNALR 1. AŞAMA: ANA BAĞLANTIYI KUR
+  // =========================================================
   useEffect(() => {
     const token = localStorage.getItem('jwtToken');
     if (!token) return;
 
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl("https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/attendanceHub", {
+      .withUrl("https://localhost:7022/attendanceHub", {
         accessTokenFactory: () => token
       })
       .withAutomaticReconnect()
@@ -121,15 +124,23 @@ const TeacherReports = () => {
         console.log("[SignalR] Hoca bağlantısı kuruldu!");
         setHubConnection(connection);
 
-        // Başka bir yerden ders kapatılırsa listeyi güncelle
+        // 1. BAŞKA YERDEN DERS KAPATILIRSA
         connection.on("SessionEndedGlobal", (sessionId) => {
           setReports(prev => prev.map(r => r.sessionId === sessionId ? { ...r, isActive: false } : r));
+        });
+
+        // 2. YENİ EKLENEN: YENİ YOKLAMA BAŞLATILIRSA LİSTEYİ TAZELE! 🔥
+        connection.on("SessionStarted", () => {
+          console.log("[SignalR] Yeni oturum açıldı, liste güncelleniyor...");
+          fetchAllData(); // Yeni ders eklendiği an API'den listeyi tazeleyip en üste koyar
         });
       })
       .catch(err => console.error("[SignalR] Hoca Bağlantı Hatası:", err));
 
-    return () => connection.stop();
-  }, []);
+    return () => {
+        connection.stop();
+    };
+  }, []); // Eğer fetchAllData bağımlılık (dependency) uyarısı verirse, fetchAllData fonksiyonunu useCallback içine alabilirsin.
 
   // =========================================================
   // 🚀 SIGNALR 2. AŞAMA: ODAYA GİR VE CANLI YOKLAMAYI İZLE
