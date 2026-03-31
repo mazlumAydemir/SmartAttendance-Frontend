@@ -49,8 +49,8 @@ const StudentManagement = () => {
 
             const headers = { 'Authorization': `Bearer ${token}` };
             const [statsRes, listRes] = await Promise.all([
-                axios.get('https://localhost:7022/api/Admin/students/stats', { headers }),
-                axios.get('https://localhost:7022/api/Admin/students', { headers })
+                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/students/stats', { headers }),
+                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/students', { headers })
             ]);
 
             setStats(statsRes.data);
@@ -68,8 +68,8 @@ const StudentManagement = () => {
             const headers = { 'Authorization': `Bearer ${token}` };
             
             const [facRes, depRes] = await Promise.all([
-                axios.get('https://localhost:7022/api/Admin/faculties-lookup', { headers }),
-                axios.get('https://localhost:7022/api/Admin/departments-lookup', { headers })
+                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/faculties-lookup', { headers }),
+                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/departments-lookup', { headers })
             ]);
             
             setFaculties(facRes.data);
@@ -104,7 +104,7 @@ const StudentManagement = () => {
                 submitData.append('ProfileImage', formData.profileImage);
             }
 
-            await axios.post('https://localhost:7022/api/Admin/students', submitData, {
+            await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/students', submitData, {
                 headers: { 
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'multipart/form-data' // Dosya yükleme formatı
@@ -132,7 +132,7 @@ const StudentManagement = () => {
 
         try {
             const token = localStorage.getItem('jwtToken');
-            await axios.put(`https://localhost:7022/api/Admin/students/${id}/toggle-status`, {}, {
+            await axios.put(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/students/${id}/toggle-status`, {}, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             fetchStudents();
@@ -195,7 +195,7 @@ const StudentManagement = () => {
                                 <div className="sm-card-avatar" style={student.profilePictureUrl ? { overflow: 'hidden', padding: 0 } : {}}>
                                     {student.profilePictureUrl ? (
                                         <img 
-                                            src={`https://localhost:7022${student.profilePictureUrl}`} 
+                                            src={`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net${student.profilePictureUrl}`} 
                                             alt={student.fullName} 
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                                         />

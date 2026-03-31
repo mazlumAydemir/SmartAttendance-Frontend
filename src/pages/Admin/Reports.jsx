@@ -20,7 +20,7 @@ const Reports = () => {
             // Örnek: Sadece Öğrenci raporu için Backend'e istek atıyoruz
             if (reportType === 'students') {
                 // Not: blob responseType'ı, dosya indirme işlemleri için kritik bir ayardır!
-                const response = await axios.get('https://localhost:7022/api/Admin/export/students', {
+                const response = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/export/students', {
                     headers: { 'Authorization': `Bearer ${token}` },
                     responseType: 'blob' 
                 });

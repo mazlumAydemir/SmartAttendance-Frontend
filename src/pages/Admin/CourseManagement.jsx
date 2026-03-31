@@ -51,7 +51,7 @@ const CourseManagement = () => {
     const fetchCourses = async () => {
         try {
             const token = localStorage.getItem('jwtToken');
-            const res = await axios.get('https://localhost:7022/api/Admin/courses', {
+            const res = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/courses', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             setCourses(res.data);
@@ -64,9 +64,9 @@ const CourseManagement = () => {
             const token = localStorage.getItem('jwtToken');
             const headers = { 'Authorization': `Bearer ${token}` };
             const [depRes, instRes, locRes] = await Promise.all([
-                axios.get('https://localhost:7022/api/Admin/departments-lookup', { headers }),
-                axios.get('https://localhost:7022/api/Admin/instructors-lookup', { headers }),
-                axios.get('https://localhost:7022/api/Admin/class-locations-lookup', { headers })
+                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/departments-lookup', { headers }),
+                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/instructors-lookup', { headers }),
+                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/class-locations-lookup', { headers })
             ]);
             setDepartments(depRes.data);
             setInstructors(instRes.data);
@@ -83,7 +83,7 @@ const CourseManagement = () => {
         e.preventDefault();
         try {
             const token = localStorage.getItem('jwtToken');
-            await axios.post('https://localhost:7022/api/Admin/courses', formData, {
+            await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/courses', formData, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             alert("Ders başarıyla eklendi!");
@@ -98,7 +98,7 @@ const CourseManagement = () => {
         setShowStudentModal(true);
         try {
             const token = localStorage.getItem('jwtToken');
-            const res = await axios.get(`https://localhost:7022/api/Admin/courses/${course.id}/students`, {
+            const res = await axios.get(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/courses/${course.id}/students`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             setCourseStudents(res.data);
@@ -117,7 +117,7 @@ const CourseManagement = () => {
             const token = localStorage.getItem('jwtToken');
             const selectedIds = courseStudents.filter(s => s.isEnrolled).map(s => s.userId);
             
-            await axios.post(`https://localhost:7022/api/Admin/courses/${selectedCourse.id}/assign-students`, selectedIds, {
+            await axios.post(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/courses/${selectedCourse.id}/assign-students`, selectedIds, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -131,7 +131,7 @@ const CourseManagement = () => {
     const fetchExistingSchedules = async (courseId) => {
         try {
             const token = localStorage.getItem('jwtToken');
-            const res = await axios.get(`https://localhost:7022/api/Admin/courses/${courseId}/schedules`, {
+            const res = await axios.get(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/courses/${courseId}/schedules`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             setExistingSchedules(res.data);
@@ -162,7 +162,7 @@ const CourseManagement = () => {
                 classLocationId: parseInt(scheduleFormData.classLocationId)
             };
 
-            await axios.post('https://localhost:7022/api/Admin/courses/schedule', payload, {
+            await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/courses/schedule', payload, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             

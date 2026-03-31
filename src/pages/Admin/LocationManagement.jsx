@@ -22,7 +22,7 @@ const LocationManagement = () => {
     const fetchLocations = async () => {
         try {
             const token = localStorage.getItem('jwtToken');
-            const res = await axios.get('https://localhost:7022/api/Admin/class-locations', {
+            const res = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/class-locations', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             setLocations(res.data);
@@ -51,7 +51,7 @@ const LocationManagement = () => {
                 fixedRadiusMeters: parseInt(formData.fixedRadiusMeters)
             };
 
-            await axios.post('https://localhost:7022/api/Admin/class-locations', payload, {
+            await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/class-locations', payload, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             

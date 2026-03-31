@@ -37,7 +37,7 @@ const AdminDashboard = () => {
                     return;
                 }
 
-                const response = await axios.get('https://localhost:7022/api/Admin/dashboard-stats', {
+                const response = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/dashboard-stats', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
