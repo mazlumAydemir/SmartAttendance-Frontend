@@ -356,19 +356,14 @@ const TeacherAttendance = () => {
                                 </div>
                             )}
 
-                           <Webcam
-    audio={false}
-    ref={webcamRef}
-    screenshotFormat="image/jpeg"
-    screenshotQuality={1} /* 🔥 DÜZELTME 1: Görüntü kalitesini %100 yap (Varsayılan 0.92'dir, bozar) */
-    videoConstraints={{ 
-        facingMode: facingMode,
-        width: { ideal: 1920 }, /* 🔥 DÜZELTME 2: Telefondan/PC'den FULL HD (1080p) çözünürlük iste! */
-        height: { ideal: 1080 } 
-    }} 
-    onUserMedia={handleCameraReady} 
-    style={{ width: '100%', height: 'auto', objectFit: 'cover' }}
-/>
+                            <Webcam
+                                audio={false}
+                                ref={webcamRef}
+                                screenshotFormat="image/jpeg"
+                                videoConstraints={{ facingMode: facingMode }} 
+                                onUserMedia={handleCameraReady} // KAMERA HAZIR OLDUĞU AN OTOMATİK ÇALIŞTIRIR!
+                                style={{ width: '100%', height: 'auto', objectFit: 'cover' }}
+                            />
                         </div>
 
                         <div style={{ textAlign: 'left', background: '#f3f4f6', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
