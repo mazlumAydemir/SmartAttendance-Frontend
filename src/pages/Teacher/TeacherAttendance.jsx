@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import QRCode from "react-qr-code";
 import Webcam from "react-webcam";
+import * as faceapi from 'face-api.js'; // 🔥 YENİ EKLENDİ: Yapay Zeka Kütüphanesi
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './TeacherAttendance.css'; 
 
@@ -43,11 +44,29 @@ const TeacherAttendance = () => {
   const webcamRef = useRef(null);
   const [recognizedNames, setRecognizedNames] = useState([]);
   const [facingMode, setFacingMode] = useState("environment");
+  const [isModelsLoaded, setIsModelsLoaded] = useState(false); // 🔥 YENİ EKLENDİ: Model yüklendi mi?
   
   // SÜREKLİ TARAMA İÇİN KONTROLCÜLER
   const [isContinuousScanning, setIsContinuousScanning] = useState(false);
   const scanningRef = useRef(false);
-  const timeoutRef = useRef(null); // Döngüyü tamamen iptal edebilmek için eklendi
+  const timeoutRef = useRef(null);
+
+  // =========================================================================
+  // 🔥 YENİ EKLENDİ: UYGULAMA AÇILINCA YAPAY ZEKA MODELLERİNİ YÜKLE
+  // =========================================================================
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+       const MODEL_URL = '/models';
+        await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+        setIsModelsLoaded(true);
+        console.log("✅ Yüz bulma AI modelleri tarayıcıya başarıyla yüklendi!");
+      } catch (error) {
+        console.error("❌ Modeller yüklenirken hata:", error);
+      }
+    };
+    loadModels();
+  }, []);
 
   const getDotNetTicks = () => {
     const now = new Date();
@@ -71,7 +90,7 @@ const TeacherAttendance = () => {
     };
   }, [createdSession, attendanceType]);
 
-  // --- DERSLERİ ÇEKME VE GRUPLAMA ---
+  // --- DERSLERİ ÇEKME VE GRUPLAMA (KODUN HİÇ BOZULMADI) ---
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -212,54 +231,93 @@ const TeacherAttendance = () => {
   };
 
   // =========================================================================
-  // OTOMATİK SÜREKLİ TARAMA MANTIĞI
+  // 🔥 YENİ EKLENDİ: YÜZÜ KIRPIP DOSYAYA ÇEVİREN FONKSİYON
   // =========================================================================
-  const dataURLtoFile = (dataurl, filename) => {
-      let arr = dataurl.split(','),
-          mime = arr[0].match(/:(.*?);/)[1],
-          bstr = atob(arr[1]),
-          n = bstr.length,
-          u8arr = new Uint8Array(n);
-      while (n--) {
-          u8arr[n] = bstr.charCodeAt(n);
-      }
-      return new File([u8arr], filename, { type: mime });
+  const cropFaceToBlob = (videoEl, box) => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      // Saç ve çene kesilmesin diye %20 boşluk bırakıyoruz
+      const padX = box.width * 0.6;
+      const padY = box.height * 0.6;
+
+      const startX = Math.max(0, box.x - padX);
+      const startY = Math.max(0, box.y - padY);
+      const cropW = Math.min(videoEl.videoWidth - startX, box.width + padX * 2);
+      const cropH = Math.min(videoEl.videoHeight - startY, box.height + padY * 2);
+
+      canvas.width = cropW;
+      canvas.height = cropH;
+
+      ctx.drawImage(videoEl, startX, startY, cropW, cropH, 0, 0, cropW, cropH);
+      canvas.toBlob((blob) => { resolve(blob); }, 'image/jpeg', 0.9);
+    });
   };
 
-  // Arka arkaya resim çeken ana döngü fonksiyonu
+  // =========================================================================
+  // 🔥 GÜNCELLENDİ: EDGE COMPUTING (Sadece yüzleri bul, kırp ve at)
+  // =========================================================================
   const processNextFrame = async () => {
-      // Eğer tarama durdurulduysa, modal kapandıysa veya kamera yoksa çık
-      if (!scanningRef.current || !webcamRef.current || !createdSession) return;
+      if (!scanningRef.current || !webcamRef.current || !createdSession || !isModelsLoaded) return;
       
       try {
-          const imageSrc = webcamRef.current.getScreenshot();
-          if (imageSrc) {
-              const imageFile = dataURLtoFile(imageSrc, 'crowd_scan.jpg');
-              const formData = new FormData();
-              formData.append('sessionId', createdSession.sessionId); 
-              formData.append('frame', imageFile);
+          const video = webcamRef.current.video;
+          
+          if (video && video.readyState === 4) {
+              // 🔥 1. KRİTİK AYAR: minConfidence: 0.35 yapıldı! 
+              // Artık arka sıradaki bulanık yüzleri de "yüz" olarak kabul edip yakalayacak!
+              const detections = await faceapi.detectAllFaces(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.35 }));
+              
+              if (detections.length > 0) {
+                  const token = localStorage.getItem('jwtToken');
 
-              const token = localStorage.getItem('jwtToken');
-              const response = await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/scan-crowd', formData, {
-                  headers: {
-                      'Content-Type': 'multipart/form-data',
-                      'Authorization': `Bearer ${token}`
-                  }
-              });
+                  // 🔥 2. KRİTİK AYAR: Paralel İşlem (Promise) dizisi oluşturuyoruz.
+                  // Yüzleri sırayla değil, hepsini aynı anda Azure'a göndereceğiz!
+                  const uploadPromises = detections.map(async (det, i) => {
+                      const box = det.box;
+                      
+                      // Kırpma payını %40 yaptık. Hem saçı/çeneyi alır hem de gereksiz arkaplanı atar.
+                      const faceBlob = await cropFaceToBlob(video, {
+                          x: box.x, y: box.y, width: box.width, height: box.height, 
+                          pad: 0.4 
+                      });
+                      
+                      const faceFile = new File([faceBlob], `face_${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
+                      const formData = new FormData();
+                      formData.append('sessionId', createdSession.sessionId); 
+                      formData.append('frame', faceFile);
 
-              const newlyRecognized = response.data.recognizedNames;
-              if (newlyRecognized && newlyRecognized.length > 0) {
-                  setRecognizedNames(prev => {
-                      const combined = [...prev, ...newlyRecognized];
-                      return [...new Set(combined)]; 
+                      // İsteği döndür (ama henüz bekleme)
+                      return axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/scan-crowd', formData, {
+                          headers: {
+                              'Content-Type': 'multipart/form-data',
+                              'Authorization': `Bearer ${token}`
+                          }
+                      });
                   });
+
+                  // 🔥 3. KRİTİK AYAR: Tüm yüzleri aynı anda Azure'a fırlat ve hepsinin cevabını tek seferde al!
+                  const results = await Promise.allSettled(uploadPromises);
+
+                  // Gelen tüm cevapları birleştir ve listeye tek seferde ekle
+                  const newlyFoundNames = [];
+                  results.forEach(res => {
+                      if (res.status === 'fulfilled' && res.value.data.recognizedNames) {
+                          newlyFoundNames.push(...res.value.data.recognizedNames);
+                      }
+                  });
+
+                  if (newlyFoundNames.length > 0) {
+                      setRecognizedNames(prev => [...new Set([...prev, ...newlyFoundNames])]);
+                  }
               }
           }
       } catch (error) {
           console.error("Tarama Hatası:", error);
       }
 
-      // Döngüyü sürdür: Hoca pencereyi kapatmadığı sürece her 2 saniyede bir devam et.
+      // 🔥 4. KRİTİK AYAR: Sen "Tam 2 Saniye" dedin, tam 2 saniye yaptık!
       if (scanningRef.current) {
           timeoutRef.current = setTimeout(processNextFrame, 2000); 
       }
@@ -267,7 +325,8 @@ const TeacherAttendance = () => {
 
   // KAMERA EKRANA GELİP HAZIR OLDUĞU AN OTOMATİK TETİKLENEN FONKSİYON
   const handleCameraReady = () => {
-      if (!scanningRef.current && createdSession) {
+      // Modellerin yüklendiğinden de emin oluyoruz
+      if (!scanningRef.current && createdSession && isModelsLoaded) {
           scanningRef.current = true;
           setIsContinuousScanning(true);
           clearTimeout(timeoutRef.current); // Eski döngüler varsa temizle
@@ -342,6 +401,11 @@ const TeacherAttendance = () => {
                                 <FaSyncAlt /> Çevir
                             </button>
                         </div>
+
+                        {/* 🔥 YENİ EKLENDİ: Model yükleniyorsa kullanıcıya bildir */}
+                        {!isModelsLoaded && (
+                            <p style={{color: '#e65100', fontWeight: 'bold', fontSize: '13px'}}><FaSpinner className="fa-spin"/> AI Modelleri Yükleniyor, lütfen bekleyin...</p>
+                        )}
                         
                         <p style={{ color: '#555', marginBottom: '15px', fontSize: '13px', textAlign: 'left' }}>
                            Kamerayı sınıfa doğrultun. Sistem yüzleri otomatik olarak bulup kaydedecektir.
@@ -356,14 +420,19 @@ const TeacherAttendance = () => {
                                 </div>
                             )}
 
-                            <Webcam
-                                audio={false}
-                                ref={webcamRef}
-                                screenshotFormat="image/jpeg"
-                                videoConstraints={{ facingMode: facingMode }} 
-                                onUserMedia={handleCameraReady} // KAMERA HAZIR OLDUĞU AN OTOMATİK ÇALIŞTIRIR!
-                                style={{ width: '100%', height: 'auto', objectFit: 'cover' }}
-                            />
+                          <Webcam
+    audio={false}
+    ref={webcamRef}
+    screenshotFormat="image/jpeg"
+    screenshotQuality={1} 
+    videoConstraints={{ 
+        facingMode: facingMode,
+        width: { ideal: 1920 }, /* 🔥 Arka sıralar için 1080p DEV çözünürlük */
+        height: { ideal: 1080 }  
+    }} 
+    onUserMedia={handleCameraReady} 
+    style={{ width: '100%', height: 'auto', objectFit: 'cover' }}
+/>
                         </div>
 
                         <div style={{ textAlign: 'left', background: '#f3f4f6', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
