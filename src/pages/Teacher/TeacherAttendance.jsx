@@ -159,44 +159,44 @@ const TeacherAttendance = () => {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       canvas.getContext('2d').drawImage(video, 0, 0);
-      canvas.toBlob((blob) => { resolve(blob); }, 'image/jpeg', 0.8);
+      canvas.toBlob((blob) => { resolve(blob); }, 'image/jpeg', 0.95);
     });
   };
 
   // 3. DEĞİŞİKLİK: ARTIK TARAYICI ÇÖKMEYECEK! 
   // faceapi.detectAllFaces komutunu kaldırdık, resmi direkt gönderiyoruz.
   const processNextFrame = async () => {
-      if (!scanningRef.current || !webcamRef.current || !createdSession) return;
-      
-      try {
-          const faceBlob = await getFullFrameBlob();
-          const faceFile = new File([faceBlob], `frame_${Date.now()}.jpg`, { type: 'image/jpeg' });
-          const token = localStorage.getItem('jwtToken');
+    if (!scanningRef.current || !webcamRef.current || !createdSession) return;
+    
+    try {
+        const faceBlob = await getFullFrameBlob();
+        const faceFile = new File([faceBlob], `frame_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        const token = localStorage.getItem('jwtToken');
 
-          const formData = new FormData();
-          formData.append('sessionId', createdSession.sessionId); 
-          formData.append('frame', faceFile);
+        const formData = new FormData();
+        formData.append('sessionId', createdSession.sessionId); 
+        formData.append('frame', faceFile);
 
-          // Backend'e direkt gönderiyoruz
-          axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/scan-crowd', formData, {
-              headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` }
-          }).then(response => {
-              const newlyRecognized = response.data.recognizedNames;
-              if (newlyRecognized && newlyRecognized.length > 0) {
-                  setRecognizedNames(prev => [...new Set([...prev, ...newlyRecognized])]);
-              }
-          }).catch(e => console.error("Tanıma hatası:", e));
+        // 🔥 DEĞİŞİKLİK BURADA: Artık axios.post'u "await" ile bekliyoruz!
+        const response = await axios.post('https://senin-api-url.com/api/Attendance/instructor/scan-crowd', formData, {
+            headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` }
+        });
 
-      } catch (error) {
-          console.error("Tarama Hatası:", error);
-      }
+        const newlyRecognized = response.data.recognizedNames;
+        if (newlyRecognized && newlyRecognized.length > 0) {
+            setRecognizedNames(prev => [...new Set([...prev, ...newlyRecognized])]);
+        }
 
-      // Her 2 saniyede bir fotoğraf gönder (Hız ve stabilite dengesi)
-      if (scanningRef.current) {
-          timeoutRef.current = setTimeout(processNextFrame, 2000); 
-      }
-  };
+    } catch (error) {
+        console.error("Tarama Hatası:", error);
+    }
 
+    // 🔥 DEĞİŞİKLİK BURADA: Backend bize cevabı (olumlu/olumsuz) döndükten tam 1 saniye sonra yeni kareyi çek.
+    // Bu sayede internet yavaşlasa bile sistem asla çökmez/kilitlenmez.
+    if (scanningRef.current) {
+        timeoutRef.current = setTimeout(processNextFrame, 1000); 
+    }
+};
   const handleCameraReady = () => {
       if (!scanningRef.current && createdSession) {
           scanningRef.current = true;
@@ -281,18 +281,18 @@ const TeacherAttendance = () => {
                                 </div>
                             )}
 
-                          <Webcam
-                              audio={false}
-                              ref={webcamRef}
-                              screenshotFormat="image/jpeg"
-                              videoConstraints={{ 
-                                  facingMode: facingMode,
-                                  width: 1280, 
-                                  height: 720  
-                              }} 
-                              onUserMedia={handleCameraReady} 
-                              style={{ width: '100%', height: 'auto', objectFit: 'cover' }}
-                          />
+                      <Webcam
+    audio={false}
+    ref={webcamRef}
+    screenshotFormat="image/jpeg"
+    videoConstraints={{ 
+        facingMode: facingMode,
+        width: 1920,   // 🔥 1280'den 1920'ye çıktı
+        height: 1080   // 🔥 720'den 1080'e çıktı
+    }} 
+    onUserMedia={handleCameraReady} 
+    style={{ width: '100%', height: 'auto', objectFit: 'cover' }}
+/>
                         </div> 
                         <div style={{ textAlign: 'left', background: '#f3f4f6', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                             <h4 style={{ margin: '0 0 10px 0', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '6px' }}>
