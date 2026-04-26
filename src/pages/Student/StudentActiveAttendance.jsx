@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import Webcam from "react-webcam";
 import jsQR from "jsqr";
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
-import axios from 'axios';
+// 🔥 DEĞİŞİKLİK
+import axiosInstance from '../../api/axiosInstance';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './StudentActiveAttendance.css';
 import * as signalR from '@microsoft/signalr';
@@ -13,41 +14,33 @@ const StudentActiveAttendance = () => {
   const navigate = useNavigate();
   const webcamRef = useRef(null);
 
-  // --- STATE TANIMLARI ---
   const [activeSessions, setActiveSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   
-  // Güvenlik Verileri
   const [location, setLocation] = useState(null);
   const [deviceId, setDeviceId] = useState(null);
   const [permissionError, setPermissionError] = useState(null);
   
-  // Durumlar
   const [loading, setLoading] = useState(false);
   const [fetchingSessions, setFetchingSessions] = useState(true);
   const [cameraLoading, setCameraLoading] = useState(true);
   const [scanResult, setScanResult] = useState(null); 
 
-  // 1. VERİ ÇEKME FONKSİYONU (Yüz Tanıma Kaldırıldı, safeFetch eklendi)
   const fetchAllActiveSessions = useCallback(async () => {
     try {
       setFetchingSessions(true);
-      const token = localStorage.getItem('jwtToken');
-      if (!token) return;
-
-      const config = { headers: { 'Authorization': `Bearer ${token}` } };
       
-      // Herhangi bir API hata verirse çökmek yerine boş dizi döndürür
-      const safeFetch = (url) => axios.get(url, config).catch(err => {
+      // 🔥 DEĞİŞİKLİK: axiosInstance kullanımı
+      const safeFetch = (url) => axiosInstance.get(url).catch(err => {
           console.warn(`[UYARI] ${url} çekilemedi:`, err.message);
           return { data: [] }; 
       });
 
       const [resQR, resLoc, resMyCourses] = await Promise.all([
-        safeFetch('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/student/active-sessions/qr'),
-        safeFetch('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/student/active-sessions/location'),
-        safeFetch('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/student/my-courses')
+        safeFetch('/Attendance/student/active-sessions/qr'),
+        safeFetch('/Attendance/student/active-sessions/location'),
+        safeFetch('/Attendance/student/my-courses')
       ]);
 
       const myCoursesList = Array.isArray(resMyCourses.data) ? resMyCourses.data : [];
@@ -76,7 +69,6 @@ const StudentActiveAttendance = () => {
     }
   }, []);
 
-  // 2. BAŞLANGIÇ GÜVENLİK AYARLARI
   useEffect(() => {
     let isMounted = true; 
 
@@ -118,13 +110,14 @@ const StudentActiveAttendance = () => {
     return () => { isMounted = false; };
   }, [fetchAllActiveSessions]);
 
-  // 3. SIGNALR BAĞLANTISI
   useEffect(() => {
     const token = localStorage.getItem('jwtToken');
     if (!token) return;
 
+    // 🔥 DEĞİŞİKLİK: SignalR URL'i env'den dinamik alınır
+    const baseUrl = import.meta.env.VITE_API_BASE_URL.replace(/\/api\/?$/, '');
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl("https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/attendanceHub", {
+      .withUrl(`${baseUrl}/attendanceHub`, {
         accessTokenFactory: () => token
       })
       .withAutomaticReconnect()
@@ -133,9 +126,7 @@ const StudentActiveAttendance = () => {
     connection.start()
       .then(() => {
         connection.on("SessionStarted", () => {
-          setTimeout(() => {
-              fetchAllActiveSessions();
-          }, 500); 
+          setTimeout(() => { fetchAllActiveSessions(); }, 500); 
         });
 
         connection.on("SessionEndedGlobal", (sessionId) => {
@@ -148,7 +139,6 @@ const StudentActiveAttendance = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
-  // --- 4. OTOMATİK QR TARAMA FONKSİYONU ---
   const scanQR = useCallback(() => {
     if (webcamRef.current && webcamRef.current.video.readyState === 4) {
       const video = webcamRef.current.video;
@@ -189,7 +179,6 @@ const StudentActiveAttendance = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanResult]); 
 
-  // --- 5. İŞLEM FONKSİYONLARI ---
   const handleJoinClick = (session) => {
     if (!location || !deviceId) {
       alert("Güvenlik verileri (Konum ve Cihaz ID) bekleniyor. Lütfen tarayıcı izinlerinizi kontrol edin.");
@@ -213,7 +202,6 @@ const StudentActiveAttendance = () => {
     
     setLoading(true);
     try {
-      const token = localStorage.getItem('jwtToken');
       const payload = {
         sessionId: selectedSession.sessionId,
         qrContent: scannedCode,
@@ -222,9 +210,8 @@ const StudentActiveAttendance = () => {
         longitude: location.longitude
       };
 
-      await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/join-qr', payload, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      // 🔥 DEĞİŞİKLİK
+      await axiosInstance.post('/Attendance/join-qr', payload);
       
       alert("✅ BAŞARILI: QR Kod onaylandı, derse katıldınız!");
       handleCloseModal();
@@ -240,16 +227,15 @@ const StudentActiveAttendance = () => {
   const handleJoinLocation = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('jwtToken');
       const payload = {
         sessionId: selectedSession.sessionId,
         deviceId: deviceId,
         latitude: location.latitude,
         longitude: location.longitude
       };
-      await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/join-location', payload, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      // 🔥 DEĞİŞİKLİK
+      await axiosInstance.post('/Attendance/join-location', payload);
+
       alert("✅ BAŞARILI: Konum doğrulandı, derse katıldınız!");
       handleCloseModal();
       fetchAllActiveSessions();

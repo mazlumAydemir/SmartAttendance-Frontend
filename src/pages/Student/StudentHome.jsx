@@ -3,7 +3,9 @@ import { FaSignOutAlt, FaGraduationCap, FaSpinner, FaBookOpen, FaChalkboardTeach
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './Student.css';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+
+// 🔥 1. DEĞİŞİKLİK: Normal axios yerine kendi axiosInstance'ımızı ekledik
+import axiosInstance from '../../api/axiosInstance';
 
 // FIREBASE IMPORTLARI
 import { getToken, onMessage } from "firebase/messaging";
@@ -27,13 +29,11 @@ const requestNotificationPermission = async () => {
   try {
     console.log("Bildirim izni isteniyor...");
 
-    // iOS + PWA değilse uyar
     if (isIOS() && !isInStandaloneMode()) {
       console.warn("iOS'ta bildirim almak için siteyi Ana Ekrana ekleyin.");
       return false;
     }
 
-    // Tarayıcı desteği kontrolü
     if (!('Notification' in window)) {
       console.error("Bu tarayıcı bildirim desteklemiyor.");
       return false;
@@ -59,7 +59,8 @@ const requestNotificationPermission = async () => {
     while (retryCount < maxRetries) {
       try {
         currentToken = await getToken(messaging, {
-          vapidKey: "BIHDqTidttn7oBg5WO7Len5paRRdhG4FPZ6UdEAWvltg-nTrQqCSOY9tRklVpACDavXbJr32Da-It3Q6V80LBTc",
+          // 🔥 2. DEĞİŞİKLİK: Firebase Key artık .env dosyasından otomatik okunuyor
+          vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
           serviceWorkerRegistration: registration
         });
         break;
@@ -94,11 +95,8 @@ const requestNotificationPermission = async () => {
       return false;
     }
 
-    await axios.post(
-      'https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Auth/update-fcm-token',
-      { token: currentToken },
-      { headers: { Authorization: `Bearer ${jwtToken}` } }
-    );
+    // 🔥 3. DEĞİŞİKLİK: Uzun url ve manuel header/token gönderimi silindi, axiosInstance kullanıldı
+    await axiosInstance.post('/Auth/update-fcm-token', { token: currentToken });
 
     console.log("FCM Token veritabanına başarıyla kaydedildi!");
     return true;
@@ -124,12 +122,12 @@ const StudentHome = () => {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Bildirim banner state'leri
-  const [showNotifBanner, setShowNotifBanner] = useState(false);   // Normal izin banner'ı
-  const [showIOSBanner, setShowIOSBanner] = useState(false);        // iOS Ana Ekrana Ekle banner'ı
-  const [notifLoading, setNotifLoading] = useState(false);          // İzin verme yükleniyor
+  const [showNotifBanner, setShowNotifBanner] = useState(false);
+  const [showIOSBanner, setShowIOSBanner] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
 
   useEffect(() => {
+    // 1. Önce LocalStorage'dan hızlıca (geçici olarak) ekrana bas
     const storedName = localStorage.getItem('fullName');
     const storedNo = localStorage.getItem('schoolNumber');
 
@@ -141,25 +139,20 @@ const StudentHome = () => {
     }
     if (storedNo) setStudentNo(storedNo);
 
+    // 2. all-users üzerinden kendi verimizi bul ve dersleri çek
+    fetchUserDataFromAllUsers();
     fetchStudentCourses();
 
-    // Banner gösterme mantığı
     if (isIOS() && !isInStandaloneMode()) {
-      // iOS ama PWA değil → Ana Ekrana Ekle banner'ı
       setShowIOSBanner(true);
     } else if (Notification.permission === 'granted') {
-      // İzin zaten var → direkt token al
       requestNotificationPermission();
     } else if (Notification.permission === 'default') {
-      // İzin henüz istenmemiş → banner göster
       setShowNotifBanner(true);
     }
-    // 'denied' ise hiçbir şey gösterme
 
-    // Uygulama açıkken gelen mesajları yakala
     const unsubscribe = onMessage(messaging, (payload) => {
       console.log("Ön plan mesajı alındı:", payload);
-      // Uygulama açıkken SW çalışmaz, manuel bildirim göster
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
           type: 'SHOW_NOTIFICATION',
@@ -171,13 +164,66 @@ const StudentHome = () => {
     return () => unsubscribe();
   }, []);
 
-  const fetchStudentCourses = async () => {
+  // 🔥 TÜM KULLANICILARDAN BİZİ BULAN FONKSİYON 🔥
+  const fetchUserDataFromAllUsers = async () => {
     try {
       const token = localStorage.getItem('jwtToken');
-      const response = await axios.get(
-        'https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/student/my-courses',
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      if (!token) return;
+
+      // Adım 1: Token'ı parçala ve kendi ID'mizi bul
+      let myUserId = null;
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        // ASP.NET standartlarında ID genelde 'nameidentifier', 'id' veya 'sub' olarak geçer
+        myUserId = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || payload.id || payload.sub;
+      } catch (e) {
+        console.warn("Token çözümlenemedi.");
+      }
+
+      // 🔥 4. DEĞİŞİKLİK: Sadece endpointin kalan adını yazdık, gerisini axiosInstance hallediyor
+      const response = await axiosInstance.get('/Auth/all-users');
+
+      const allUsers = response.data;
+      let currentUser = null;
+
+      // Adım 3: Listedeki tüm kullanıcılar arasından bizi (ID'mizi) bul
+      if (myUserId) {
+        currentUser = allUsers.find(u => u.id?.toString() === myUserId.toString());
+      } else {
+        // Token'dan ID bulamazsak, isme göre eşleşme arayalım (B planı)
+        const localName = localStorage.getItem('fullName');
+        if (localName) {
+          currentUser = allUsers.find(u => (u.fullName === localName || `${u.firstName} ${u.lastName}` === localName));
+        }
+      }
+
+      // Adım 4: Kullanıcıyı bulduysak ekrana bas ve LocalStorage'ı güncelle
+      if (currentUser) {
+        const nameFromApi = currentUser.fullName || currentUser.name || `${currentUser.firstName} ${currentUser.lastName}`;
+        const noFromApi = currentUser.schoolNumber || currentUser.studentNo;
+
+        if (nameFromApi) {
+          const upperName = nameFromApi.toUpperCase();
+          setStudentName(upperName);
+          const initials = upperName.split(' ').map(word => word[0]).join('').substring(0, 2);
+          setStudentInitials(initials);
+          localStorage.setItem('fullName', nameFromApi); 
+        }
+
+        if (noFromApi) {
+          setStudentNo(noFromApi);
+          localStorage.setItem('schoolNumber', noFromApi); 
+        }
+      }
+    } catch (err) {
+      console.error("all-users endpoint'inden veri çekilemedi:", err);
+    }
+  };
+
+  const fetchStudentCourses = async () => {
+    try {
+      // 🔥 5. DEĞİŞİKLİK: Uzun URL ve manuel Token temizlendi, axiosInstance hallediyor.
+      const response = await axiosInstance.get('/Attendance/student/my-courses');
       setCourses(response.data);
     } catch (err) {
       console.error("Dersler yüklenemedi:", err);
@@ -330,7 +376,8 @@ const StudentHome = () => {
           <div className="student-avatar-box">{studentInitials}</div>
           <div>
             <h3>{studentName}</h3>
-            <span className="student-no">{studentNo || "Öğrenci Paneli"}</span>
+            {/* Öğrenci Numarası Görüntüleme Alanı */}
+            <span className="student-no">{studentNo ? ` ${studentNo}` : "Öğrenci Paneli"}</span>
           </div>
         </div>
       </div>

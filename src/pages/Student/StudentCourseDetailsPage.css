@@ -1,4 +1,4 @@
-/* src/pages/Student/StudentCourseDetails.css */
+/* src/pages/Student/StudentCourseDetailsPage.css */
 
 .details-container {
   padding: 20px;
@@ -6,7 +6,9 @@
   box-sizing: border-box;
 }
 
-/* Üst Özet Kartı */
+/* ========================================================== */
+/* ÜST ÖZET KARTI                                             */
+/* ========================================================== */
 .summary-card {
   background-color: #fff;
   border-radius: 12px;
@@ -14,47 +16,67 @@
   box-shadow: 0 4px 10px rgba(0,0,0,0.05);
   border: 1px solid #eee;
   margin-bottom: 30px;
+  
+  /* Dikey (Column) dizilim - başlık üstte, kutular altta */
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  flex-direction: column; 
+  align-items: stretch;
   gap: 20px;
 }
 
+.course-header {
+  border-bottom: 1px solid #eee;
+  padding-bottom: 15px;
+}
+
 .course-header h2 {
-  margin: 0;
+  margin: 0 0 5px 0;
   color: #333;
   font-size: 22px;
 }
 
 .course-header p {
-  margin: 5px 0 0 0;
+  margin: 0;
   color: #666;
 }
 
-/* İstatistik Kutuları */
+/* ========================================================== */
+/* İSTATİSTİK KUTULARI                                        */
+/* ========================================================== */
 .stats-row {
   display: flex;
+  flex-wrap: wrap; 
   gap: 15px;
+  width: 100%;
 }
 
 .stat-box {
-  background-color: #f8f9fa;
-  padding: 15px 20px;
+  background-color: #fdfdfd;
+  padding: 20px 15px;
   border-radius: 10px;
   text-align: center;
-  min-width: 80px;
   border: 1px solid #e0e0e0;
+  
+  /* Kutuların eşit dağılmasını sağlar */
+  flex: 1; 
+  min-width: 120px; 
 }
 
-.stat-number {
+/* Mavi Katılım Kutusu İçin Özel Sınıf */
+.stat-box.highlight {
+  background-color: #e7f1ff;
+  border-color: #b8daff;
+}
+
+/* ÇAKIŞMAYI ÇÖZEN YENİ CLASS İSMİ: course-stat-val */
+.course-stat-val {
   display: block;
-  font-size: 20px;
+  font-size: 24px;
   font-weight: bold;
 }
 
 .stat-label {
-  font-size: 12px;
+  font-size: 13px;
   color: #666;
   text-transform: uppercase;
   margin-top: 5px;
@@ -65,8 +87,11 @@
 .text-green { color: #28a745; }
 .text-red { color: #dc3545; }
 .text-orange { color: #fd7e14; }
+.text-blue { color: #007bff; }
 
-/* Liste */
+/* ========================================================== */
+/* LİSTE (GEÇMİŞ YOKLAMALAR)                                  */
+/* ========================================================== */
 .history-list {
   display: flex;
   flex-direction: column;
@@ -81,12 +106,13 @@
   align-items: center;
   justify-content: space-between;
   border: 1px solid #eee;
-  transition: transform 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .history-item:hover {
   transform: translateX(5px);
   border-color: #007bff;
+  box-shadow: 0 4px 12px rgba(0,123,255,0.1);
 }
 
 .item-left {
@@ -111,7 +137,9 @@
 .session-info h4 { margin: 0 0 5px 0; font-size: 16px; color: #444; }
 .session-info p { margin: 0; font-size: 13px; color: #888; }
 
-/* Durum Badge'leri */
+/* ========================================================== */
+/* DURUM BADGE'LERİ                                           */
+/* ========================================================== */
 .status-badge {
   padding: 8px 16px;
   border-radius: 20px;
@@ -119,6 +147,9 @@
   font-weight: bold;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  display: inline-block;
+  min-width: 70px;
+  text-align: center;
 }
 
 .status-present { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
@@ -131,10 +162,11 @@
   color: #888;
   background: #fff;
   border-radius: 10px;
+  border: 1px dashed #ccc;
 }
 
 /* ========================================================== */
-/* MOBİL UYUM (TELEFONLAR İÇİN) - YENİ EKLENEN KISIM          */
+/* MOBİL UYUM (TELEFONLAR İÇİN)                               */
 /* ========================================================== */
 @media (max-width: 768px) {
   .details-container {
@@ -142,14 +174,11 @@
   }
 
   .summary-card {
-    flex-direction: column;
-    align-items: stretch; /* Kutuları ekranın genişliğine yay */
     padding: 20px 15px;
-    gap: 15px;
   }
 
   .course-header {
-    text-align: center; /* Mobilde başlığı ortala */
+    text-align: center; 
   }
 
   .course-header h2 {
@@ -159,18 +188,17 @@
   /* 4 Kutuyu yan yana sıkıştırmak yerine 2x2 Izgara (Grid) Yap */
   .stats-row {
     display: grid;
-    grid-template-columns: repeat(2, 1fr); /* 2 Sütun */
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
-    width: 100%;
   }
 
   .stat-box {
-    min-width: auto; /* Sabit genişliği iptal et */
-    padding: 12px;
+    min-width: auto; 
+    padding: 15px;
   }
 
-  .stat-number {
-    font-size: 18px;
+  .course-stat-val {
+    font-size: 20px;
   }
 
   /* Geçmiş Liste Kartlarının Mobilde Sığması İçin */
@@ -186,7 +214,7 @@
   }
 
   .item-right {
-    align-self: flex-end; /* Etiketi sağ alta daya */
+    align-self: flex-end;
     width: 100%;
     text-align: right;
   }

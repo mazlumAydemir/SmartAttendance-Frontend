@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import axios from 'axios';
-import { FaSpinner } from 'react-icons/fa';
+import { useParams, useNavigate } from 'react-router-dom';
+import { FaSpinner, FaSignOutAlt } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
-
+// 🔥 DEĞİŞİKLİK
+import axiosInstance from '../../api/axiosInstance';
 import "./StudentCourseDetailsPage.css";
 
 const StudentCourseDetailsPage = () => {
   const { courseId } = useParams();
+  const navigate = useNavigate(); 
   
   const [history, setHistory] = useState([]);
   const [courseInfo, setCourseInfo] = useState({ name: '', code: '' });
@@ -21,16 +22,15 @@ const StudentCourseDetailsPage = () => {
 
   const fetchHistory = async () => {
     try {
-      const token = localStorage.getItem('jwtToken');
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-
-      const coursesRes = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/student/my-courses', config);
+      // 🔥 DEĞİŞİKLİK
+      const coursesRes = await axiosInstance.get('/Attendance/student/my-courses');
       const currentCourse = coursesRes.data.find(c => c.id.toString() === courseId.toString());
       if (currentCourse) {
         setCourseInfo({ name: currentCourse.courseName, code: currentCourse.courseCode });
       }
 
-      const historyRes = await axios.get(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/student/history/${courseId}`, config);
+      // 🔥 DEĞİŞİKLİK
+      const historyRes = await axiosInstance.get(`/Attendance/student/history/${courseId}`);
       setHistory(historyRes.data);
       calculateStats(historyRes.data);
 
@@ -70,8 +70,23 @@ const StudentCourseDetailsPage = () => {
     return <span className="status-badge" style={{backgroundColor: '#eee', color:'#999'}}>-</span>;
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('jwtToken');
+    navigate('/');
+  };
+
   return (
     <DashboardLayout role="student">
+      
+      <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', backgroundColor: '#fff', borderBottom: '1px solid #eee', marginBottom: '20px' }}>
+        <h1 style={{ margin: 0, fontSize: '20px', color: '#333' }}>Ders Detayı</h1>
+        
+        <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <button className="lang-btn" style={{ background: '#e3342f', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>TR</button>
+          <FaSignOutAlt className="logout-icon" onClick={handleLogout} style={{ color: '#0056b3', fontSize: '20px', cursor: 'pointer' }} title="Çıkış Yap" />
+        </div>
+      </header>
+
       <div className="details-container">
         {loading ? (
           <div style={{ textAlign: 'center', padding: '50px' }}>
@@ -88,20 +103,20 @@ const StudentCourseDetailsPage = () => {
               
               <div className="stats-row">
                 <div className="stat-box">
-                  <span className="stat-number text-green">{stats.present}</span>
+                  <span className="course-stat-val text-green">{stats.present}</span>
                   <span className="stat-label">Var</span>
                 </div>
                 <div className="stat-box">
-                  <span className="stat-number text-red">{stats.absent}</span>
+                  <span className="course-stat-val text-red">{stats.absent}</span>
                   <span className="stat-label">Yok</span>
                 </div>
                 <div className="stat-box">
-                  <span className="stat-number text-orange">{stats.excused}</span>
+                  <span className="course-stat-val text-orange">{stats.excused}</span>
                   <span className="stat-label">İzinli</span>
                 </div>
-                <div className="stat-box" style={{ borderColor: '#007bff', backgroundColor: '#e7f1ff' }}>
-                  <span className="stat-number" style={{ color: '#007bff' }}>%{stats.percentage}</span>
-                  <span className="stat-label">Katılım</span>
+                <div className="stat-box highlight">
+                  <span className="course-stat-val text-blue">%{stats.percentage}</span>
+                  <span className="stat-label text-blue">Katılım</span>
                 </div>
               </div>
             </div>
@@ -126,15 +141,10 @@ const StudentCourseDetailsPage = () => {
                         
                         <div className="session-info">
                           <h4>{date.full}</h4>
-                          <p>
-                            Saat: <strong>{date.time}</strong> • Yöntem: {item.method}
-                          </p>
+                          <p>Saat: <strong>{date.time}</strong> • Yöntem: {item.method}</p>
                         </div>
                       </div>
-
-                      <div className="item-right">
-                        {renderStatusBadge(item.status)}
-                      </div>
+                      <div className="item-right">{renderStatusBadge(item.status)}</div>
                     </div>
                   );
                 })}

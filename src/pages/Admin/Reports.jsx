@@ -1,40 +1,30 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { FaSignOutAlt, FaUserFriends, FaUserTie, FaGraduationCap, FaUniversity, FaBuilding } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './Reports.css';
+// 🔥 Değişiklik
+import axiosInstance from '../../api/axiosInstance';
 
 const Reports = () => {
     const navigate = useNavigate();
 
-    // Rapor İndirme Fonksiyonu
     const handleDownload = async (reportType) => {
         try {
-            const token = localStorage.getItem('jwtToken');
-            if (!token) {
-                navigate('/');
-                return;
-            }
-
-            // Örnek: Sadece Öğrenci raporu için Backend'e istek atıyoruz
             if (reportType === 'students') {
-                // Not: blob responseType'ı, dosya indirme işlemleri için kritik bir ayardır!
-                const response = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/export/students', {
-                    headers: { 'Authorization': `Bearer ${token}` },
+                // 🔥 Değişiklik: Token ve header silindi, sadece responseType: 'blob' bırakıldı
+                const response = await axiosInstance.get('/Admin/export/students', {
                     responseType: 'blob' 
                 });
 
-                // Gelen veriyi tarayıcıda dosyaya dönüştürüp indirtme hilesi
                 const url = window.URL.createObjectURL(new Blob([response.data]));
                 const link = document.createElement('a');
                 link.href = url;
-                link.setAttribute('download', 'Ogrenci_Raporu.csv'); // İndirilecek dosya adı
+                link.setAttribute('download', 'Ogrenci_Raporu.csv'); 
                 document.body.appendChild(link);
                 link.click();
                 link.remove();
             } else {
-                // Diğer raporlar için şimdilik uyarı verelim
                 alert("Bu rapor türü için API henüz hazırlanmadı. Öğrenci raporunu deneyebilirsiniz.");
             }
         } catch (error) {
@@ -61,7 +51,6 @@ const Reports = () => {
 
                 <div className="reports-list">
                     
-                    {/* ÖĞRENCİ RAPORU */}
                     <div className="report-card" onClick={() => handleDownload('students')}>
                         <div className="report-icon-box box-blue">
                             <FaUserFriends className="icon-blue" />
@@ -72,7 +61,6 @@ const Reports = () => {
                         </div>
                     </div>
 
-                    {/* ÖĞRETMEN RAPORU */}
                     <div className="report-card" onClick={() => handleDownload('teachers')}>
                         <div className="report-icon-box box-cyan">
                             <FaUserTie className="icon-cyan" />
@@ -83,7 +71,6 @@ const Reports = () => {
                         </div>
                     </div>
 
-                    {/* DERS RAPORU */}
                     <div className="report-card" onClick={() => handleDownload('courses')}>
                         <div className="report-icon-box box-purple">
                             <FaGraduationCap className="icon-purple" />
@@ -94,7 +81,6 @@ const Reports = () => {
                         </div>
                     </div>
 
-                    {/* FAKÜLTE RAPORU */}
                     <div className="report-card" onClick={() => handleDownload('faculties')}>
                         <div className="report-icon-box box-orange">
                             <FaUniversity className="icon-orange" />
@@ -105,7 +91,6 @@ const Reports = () => {
                         </div>
                     </div>
 
-                    {/* BÖLÜM RAPORU */}
                     <div className="report-card" onClick={() => handleDownload('departments')}>
                         <div className="report-icon-box box-pink">
                             <FaBuilding className="icon-pink" />

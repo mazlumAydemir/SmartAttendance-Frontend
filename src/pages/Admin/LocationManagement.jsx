@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { FaSignOutAlt, FaPlus, FaMapMarkerAlt, FaTimes, FaSpinner } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './LocationManagement.css';
+// 🔥 Değişiklik
+import axiosInstance from '../../api/axiosInstance';
 
 const LocationManagement = () => {
     const navigate = useNavigate();
@@ -16,15 +17,13 @@ const LocationManagement = () => {
         roomName: '',
         latitude: '',
         longitude: '',
-        fixedRadiusMeters: 50 // Varsayılan 50 metre yarıçap
+        fixedRadiusMeters: 50
     });
 
     const fetchLocations = async () => {
         try {
-            const token = localStorage.getItem('jwtToken');
-            const res = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/class-locations', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // 🔥 Değişiklik
+            const res = await axiosInstance.get('/Admin/class-locations');
             setLocations(res.data);
         } catch (error) {
             console.error("Lokasyonlar çekilemedi", error);
@@ -41,9 +40,6 @@ const LocationManagement = () => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const token = localStorage.getItem('jwtToken');
-            
-            // Virgüllü girişleri (Türkçe format) noktaya çevirip double yapıyoruz
             const payload = {
                 roomName: formData.roomName,
                 latitude: parseFloat(formData.latitude.toString().replace(',', '.')),
@@ -51,9 +47,8 @@ const LocationManagement = () => {
                 fixedRadiusMeters: parseInt(formData.fixedRadiusMeters)
             };
 
-            await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/class-locations', payload, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // 🔥 Değişiklik
+            await axiosInstance.post('/Admin/class-locations', payload);
             
             alert("Sınıf lokasyonu başarıyla eklendi!");
             setShowModal(false);

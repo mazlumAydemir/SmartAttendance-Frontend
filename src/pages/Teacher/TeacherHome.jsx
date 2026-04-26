@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { FaSignOutAlt, FaGraduationCap, FaSpinner, FaExclamationCircle } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+// 🔥 DEĞİŞİKLİK
+import axiosInstance from '../../api/axiosInstance';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './Teacher.css';
 
@@ -25,18 +26,9 @@ const TeacherHome = () => {
     const fetchCourses = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem('jwtToken');
 
-        if (!token) {
-          navigate('/');
-          return;
-        }
-
-        const response = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/my-courses', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        // 🔥 DEĞİŞİKLİK
+        const response = await axiosInstance.get('/Attendance/my-courses');
 
         setCourses(response.data);
         setError(null);
@@ -117,8 +109,8 @@ const TeacherHome = () => {
               <div 
                 key={course.id} 
                 className="course-item"
-                style={{ cursor: 'pointer' }} // Tıklanabilirlik imajı
-                onClick={() => navigate(`/teacher/course/${course.id}`)} // Tıklanınca yönlendir
+                style={{ cursor: 'pointer' }} 
+                onClick={() => navigate(`/teacher/course/${course.id}`)} 
               >
                 <h3 className="course-title">{course.courseName}</h3>
                 <p className="course-details">

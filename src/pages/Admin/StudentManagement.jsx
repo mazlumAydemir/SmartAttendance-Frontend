@@ -1,20 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { FaSignOutAlt, FaSearch, FaFilter, FaPlus, FaEllipsisV, FaGraduationCap, FaBuilding, FaTimes, FaSpinner } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './StudentManagement.css';
+// 🔥 Değişiklik
+import axiosInstance from '../../api/axiosInstance';
 
 const StudentManagement = () => {
     const navigate = useNavigate();
     
-    // --- LİSTE VE ARAMA STATE'LERİ ---
     const [stats, setStats] = useState({ totalStudents: 0, activeStudents: 0 });
     const [students, setStudents] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
 
-    // --- MODAL VE FORM STATE'LERİ ---
     const [showModal, setShowModal] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [faculties, setFaculties] = useState([]);
@@ -27,10 +26,9 @@ const StudentManagement = () => {
         password: '',
         schoolNumber: '',
         departmentId: '',
-        profileImage: null // Resim için yeni alan
+        profileImage: null 
     });
 
-    // İsimden baş harf çıkaran yardımcı fonksiyon (Resim yoksa çalışır)
     const getInitials = (name) => {
         if (!name) return "??";
         const names = name.split(' ');
@@ -41,16 +39,12 @@ const StudentManagement = () => {
         return initials;
     };
 
-    // --- VERİ ÇEKME FONKSİYONLARI ---
     const fetchStudents = async () => {
         try {
-            const token = localStorage.getItem('jwtToken');
-            if (!token) return navigate('/');
-
-            const headers = { 'Authorization': `Bearer ${token}` };
+            // 🔥 Değişiklik
             const [statsRes, listRes] = await Promise.all([
-                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/students/stats', { headers }),
-                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/students', { headers })
+                axiosInstance.get('/Admin/students/stats'),
+                axiosInstance.get('/Admin/students')
             ]);
 
             setStats(statsRes.data);
@@ -64,12 +58,10 @@ const StudentManagement = () => {
 
     const fetchLookups = async () => {
         try {
-            const token = localStorage.getItem('jwtToken');
-            const headers = { 'Authorization': `Bearer ${token}` };
-            
+            // 🔥 Değişiklik
             const [facRes, depRes] = await Promise.all([
-                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/faculties-lookup', { headers }),
-                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/departments-lookup', { headers })
+                axiosInstance.get('/Admin/faculties-lookup'),
+                axiosInstance.get('/Admin/departments-lookup')
             ]);
             
             setFaculties(facRes.data);
@@ -84,15 +76,11 @@ const StudentManagement = () => {
         fetchLookups();
     }, [navigate]);
 
-    // --- YENİ ÖĞRENCİ KAYDETME (RESİMLİ) ---
     const handleAddStudent = async (e) => {
         e.preventDefault();
         setSubmitting(true);
 
         try {
-            const token = localStorage.getItem('jwtToken');
-            
-            // JSON yerine FormData kullanıyoruz (Resim dosyası gönderebilmek için)
             const submitData = new FormData();
             submitData.append('FullName', formData.fullName);
             submitData.append('Email', formData.email);
@@ -104,10 +92,10 @@ const StudentManagement = () => {
                 submitData.append('ProfileImage', formData.profileImage);
             }
 
-            await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/students', submitData, {
+            // 🔥 Değişiklik: Sadece Content-Type belirttik, token axiosInstance'dan geliyor
+            await axiosInstance.post('/Admin/students', submitData, {
                 headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data' // Dosya yükleme formatı
+                    'Content-Type': 'multipart/form-data' 
                 }
             });
 
@@ -116,7 +104,7 @@ const StudentManagement = () => {
             setFormData({ fullName: '', email: '', password: '', schoolNumber: '', departmentId: '', profileImage: null });
             setSelectedFacultyId(''); 
             
-            fetchStudents(); // Listeyi yenile
+            fetchStudents(); 
         } catch (error) {
             const errorMsg = error.response?.data?.message || "Bir hata oluştu!";
             alert("Hata: " + errorMsg);
@@ -125,16 +113,13 @@ const StudentManagement = () => {
         }
     };
 
-    // --- DURUM (AKTİF/PASİF) DEĞİŞTİRME ---
     const handleToggleStatus = async (id, currentStatus, fullName) => {
         const actionText = currentStatus ? "PASİF" : "AKTİF";
         if (!window.confirm(`${fullName} isimli öğrenciyi ${actionText} duruma getirmek istediğinize emin misiniz?`)) return;
 
         try {
-            const token = localStorage.getItem('jwtToken');
-            await axios.put(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/students/${id}/toggle-status`, {}, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // 🔥 Değişiklik
+            await axiosInstance.put(`/Admin/students/${id}/toggle-status`, {});
             fetchStudents();
         } catch (error) {
             alert("Durum güncellenemedi!");
@@ -145,6 +130,9 @@ const StudentManagement = () => {
         s?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s?.schoolNumber?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    // Resim url'sini oluştururken baseURL'i dinamik olarak ENV'den alıyoruz
+    const getBaseUrl = () => import.meta.env.VITE_API_BASE_URL.replace(/\/api\/?$/, '');
 
     return (
         <DashboardLayout role="admin">
@@ -191,11 +179,11 @@ const StudentManagement = () => {
                         
                         {filteredStudents.map(student => (
                             <div className="sm-card" key={student.id}>
-                                {/* AVATAR / RESİM GÖSTERİMİ */}
                                 <div className="sm-card-avatar" style={student.profilePictureUrl ? { overflow: 'hidden', padding: 0 } : {}}>
                                     {student.profilePictureUrl ? (
                                         <img 
-                                            src={`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net${student.profilePictureUrl}`} 
+                                            // 🔥 Değişiklik: Resim linki de dinamik oldu
+                                            src={`${getBaseUrl()}${student.profilePictureUrl}`} 
                                             alt={student.fullName} 
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                                         />
@@ -239,7 +227,6 @@ const StudentManagement = () => {
                         </div>
                         
                         <form onSubmit={handleAddStudent}>
-                            {/* DOSYA YÜKLEME ALANI */}
                             <div className="sm-form-group">
                                 <label>Profil Resmi (İsteğe Bağlı)</label>
                                 <input 

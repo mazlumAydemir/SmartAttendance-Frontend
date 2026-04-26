@@ -1,25 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { FaSignOutAlt, FaSearch, FaFilter, FaPlus, FaEllipsisV, FaBook, FaTimes, FaSpinner } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './TeacherManagement.css';
+// 🔥 Değişiklik
+import axiosInstance from '../../api/axiosInstance';
 
 const TeacherManagement = () => {
     const navigate = useNavigate();
     
-    // --- LİSTE VE ARAMA STATE'LERİ ---
     const [stats, setStats] = useState({ totalTeachers: 0, activeTeachers: 0 });
     const [teachers, setTeachers] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
 
-    // --- MODAL VE FORM STATE'LERİ ---
     const [showModal, setShowModal] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [faculties, setFaculties] = useState([]);
     const [departments, setDepartments] = useState([]);
-    const [selectedFacultyId, setSelectedFacultyId] = useState(''); // Formda seçilen fakülte
+    const [selectedFacultyId, setSelectedFacultyId] = useState(''); 
 
     const [formData, setFormData] = useState({
         fullName: '',
@@ -29,7 +28,6 @@ const TeacherManagement = () => {
         departmentId: ''
     });
 
-    // İsimden Baş Harf Çıkarma
     const getInitials = (name) => {
         if (!name) return "??";
         const names = name.split(' ');
@@ -40,16 +38,12 @@ const TeacherManagement = () => {
         return initials;
     };
 
-    // --- VERİ ÇEKME FONKSİYONLARI ---
     const fetchTeachers = async () => {
         try {
-            const token = localStorage.getItem('jwtToken');
-            if (!token) return navigate('/');
-
-            const headers = { 'Authorization': `Bearer ${token}` };
+            // 🔥 Değişiklik
             const [statsRes, listRes] = await Promise.all([
-                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/teachers/stats', { headers }),
-                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/teachers', { headers })
+                axiosInstance.get('/Admin/teachers/stats'),
+                axiosInstance.get('/Admin/teachers')
             ]);
 
             setStats(statsRes.data);
@@ -63,12 +57,10 @@ const TeacherManagement = () => {
 
     const fetchLookups = async () => {
         try {
-            const token = localStorage.getItem('jwtToken');
-            const headers = { 'Authorization': `Bearer ${token}` };
-            
+            // 🔥 Değişiklik
             const [facRes, depRes] = await Promise.all([
-                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/faculties-lookup', { headers }),
-                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/departments-lookup', { headers })
+                axiosInstance.get('/Admin/faculties-lookup'),
+                axiosInstance.get('/Admin/departments-lookup')
             ]);
             
             setFaculties(facRes.data);
@@ -78,30 +70,25 @@ const TeacherManagement = () => {
         }
     };
 
-    // Sayfa Yüklendiğinde Verileri Getir
     useEffect(() => {
         fetchTeachers();
         fetchLookups();
     }, [navigate]);
 
-    // --- YENİ ÖĞRETMEN KAYDETME ---
     const handleAddTeacher = async (e) => {
         e.preventDefault();
         setSubmitting(true);
 
         try {
-            const token = localStorage.getItem('jwtToken');
-            await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/teachers', formData, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // 🔥 Değişiklik
+            await axiosInstance.post('/Admin/teachers', formData);
 
             alert("Öğretmen başarıyla eklendi!");
             setShowModal(false);
-            // Formu sıfırla
             setFormData({ fullName: '', email: '', password: '', schoolNumber: '', departmentId: '' });
             setSelectedFacultyId(''); 
             
-            fetchTeachers(); // Listeyi yenile
+            fetchTeachers(); 
         } catch (error) {
             const errorMsg = error.response?.data?.message || "Bir hata oluştu!";
             alert("Hata: " + errorMsg);
@@ -110,7 +97,6 @@ const TeacherManagement = () => {
         }
     };
 
-    // --- DURUM (AKTİF/PASİF) DEĞİŞTİRME ---
     const handleToggleStatus = async (id, currentStatus, fullName) => {
         const actionText = currentStatus ? "PASİF" : "AKTİF";
         if (!window.confirm(`${fullName} isimli öğretmeni ${actionText} duruma getirmek istediğinize emin misiniz?`)) {
@@ -118,19 +104,15 @@ const TeacherManagement = () => {
         }
 
         try {
-            const token = localStorage.getItem('jwtToken');
-            await axios.put(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/teachers/${id}/toggle-status`, {}, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            fetchTeachers(); // Listeyi yenile
+            // 🔥 Değişiklik
+            await axiosInstance.put(`/Admin/teachers/${id}/toggle-status`, {});
+            fetchTeachers(); 
         } catch (error) {
             console.error("Durum güncellenirken hata:", error);
             alert("Durum güncellenemedi!");
         }
     };
 
-    // --- ARAMA FİLTRESİ ---
     const filteredTeachers = (teachers || []).filter(t => 
         t?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         t?.schoolNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -149,7 +131,6 @@ const TeacherManagement = () => {
 
             <div className="teacher-management-container">
                 
-                {/* ÜST İSTATİSTİKLER */}
                 <div className="tm-stats-row">
                     <div className="tm-stat-box">
                         <span className="tm-stat-label">Toplam Öğretmen</span>
@@ -161,7 +142,6 @@ const TeacherManagement = () => {
                     </div>
                 </div>
 
-                {/* BUTONLAR */}
                 <div className="tm-actions-row">
                     <button className="tm-btn-filter">
                         <FaFilter /> Filtreleme
@@ -171,7 +151,6 @@ const TeacherManagement = () => {
                     </button>
                 </div>
 
-                {/* ARAMA ÇUBUĞU */}
                 <div className="tm-search-bar">
                     <FaSearch className="tm-search-icon" />
                     <input 
@@ -182,7 +161,6 @@ const TeacherManagement = () => {
                     />
                 </div>
 
-                {/* LİSTE */}
                 {loading ? (
                     <div className="tm-loading">Öğretmenler Yükleniyor...</div>
                 ) : (
@@ -251,7 +229,7 @@ const TeacherManagement = () => {
                                     value={selectedFacultyId} 
                                     onChange={(e) => {
                                         setSelectedFacultyId(e.target.value);
-                                        setFormData({...formData, departmentId: ''}); // Fakülte değişince bölüm sıfırlanır
+                                        setFormData({...formData, departmentId: ''}); 
                                     }}
                                     required
                                 >

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { FaSignOutAlt, FaSearch, FaFilter, FaPlus, FaUsers, FaTimes, FaSpinner, FaUserCog, FaCalendarAlt } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './CourseManagement.css';
+// 🔥 Değişiklik: axiosInstance eklendi
+import axiosInstance from '../../api/axiosInstance';
 
-// --- SABİT DERS PERİYOTLARI (10 DK ARALIKLI) ---
 const PERIODS = [
     { id: 1, start: '08:30', end: '09:20', label: '1. Periyot (08:30 - 09:20)' },
     { id: 2, start: '09:30', end: '10:20', label: '2. Periyot (09:30 - 10:20)' },
@@ -37,23 +37,20 @@ const CourseManagement = () => {
     const [courseStudents, setCourseStudents] = useState([]);
     const [savingStudents, setSavingStudents] = useState(false);
 
-    // --- SADELEŞTİRİLMİŞ TAKVİM STATE'İ ---
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [locations, setLocations] = useState([]);
     const [existingSchedules, setExistingSchedules] = useState([]);
     const [scheduleFormData, setScheduleFormData] = useState({
         courseId: '',
         dayOfWeek: '1',
-        periodId: 1, // Tek bir periyot tutuyoruz
+        periodId: 1, 
         classLocationId: ''
     });
 
     const fetchCourses = async () => {
         try {
-            const token = localStorage.getItem('jwtToken');
-            const res = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/courses', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // 🔥 Değişiklik
+            const res = await axiosInstance.get('/Admin/courses');
             setCourses(res.data);
         } catch (error) { console.error("Dersler çekilirken hata:", error); } 
         finally { setLoading(false); }
@@ -61,12 +58,11 @@ const CourseManagement = () => {
 
     const fetchLookups = async () => {
         try {
-            const token = localStorage.getItem('jwtToken');
-            const headers = { 'Authorization': `Bearer ${token}` };
+            // 🔥 Değişiklik
             const [depRes, instRes, locRes] = await Promise.all([
-                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/departments-lookup', { headers }),
-                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/instructors-lookup', { headers }),
-                axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/class-locations-lookup', { headers })
+                axiosInstance.get('/Admin/departments-lookup'),
+                axiosInstance.get('/Admin/instructors-lookup'),
+                axiosInstance.get('/Admin/class-locations-lookup')
             ]);
             setDepartments(depRes.data);
             setInstructors(instRes.data);
@@ -82,10 +78,8 @@ const CourseManagement = () => {
     const handleAddCourse = async (e) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem('jwtToken');
-            await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/courses', formData, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // 🔥 Değişiklik
+            await axiosInstance.post('/Admin/courses', formData);
             alert("Ders başarıyla eklendi!");
             setShowAddModal(false);
             setFormData({ courseCode: '', courseName: '', departmentId: '', instructorId: '' });
@@ -97,10 +91,8 @@ const CourseManagement = () => {
         setSelectedCourse(course);
         setShowStudentModal(true);
         try {
-            const token = localStorage.getItem('jwtToken');
-            const res = await axios.get(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/courses/${course.id}/students`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // 🔥 Değişiklik
+            const res = await axiosInstance.get(`/Admin/courses/${course.id}/students`);
             setCourseStudents(res.data);
         } catch (error) { console.error(error); }
     };
@@ -114,12 +106,9 @@ const CourseManagement = () => {
     const handleSaveStudents = async () => {
         setSavingStudents(true);
         try {
-            const token = localStorage.getItem('jwtToken');
             const selectedIds = courseStudents.filter(s => s.isEnrolled).map(s => s.userId);
-            
-            await axios.post(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/courses/${selectedCourse.id}/assign-students`, selectedIds, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // 🔥 Değişiklik
+            await axiosInstance.post(`/Admin/courses/${selectedCourse.id}/assign-students`, selectedIds);
             
             alert("Öğrenciler başarıyla atandı!");
             setShowStudentModal(false);
@@ -130,10 +119,8 @@ const CourseManagement = () => {
 
     const fetchExistingSchedules = async (courseId) => {
         try {
-            const token = localStorage.getItem('jwtToken');
-            const res = await axios.get(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/courses/${courseId}/schedules`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // 🔥 Değişiklik
+            const res = await axiosInstance.get(`/Admin/courses/${courseId}/schedules`);
             setExistingSchedules(res.data);
         } catch (error) { console.error("Programlar çekilemedi:", error); }
     };
@@ -145,13 +132,9 @@ const CourseManagement = () => {
         fetchExistingSchedules(course.id);
     };
 
-    // --- SADELEŞTİRİLMİŞ KAYDETME FONKSİYONU ---
     const handleAddSchedule = async (e) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem('jwtToken');
-            
-            // Sadece seçilen tek periyodu bul
             const selectedPeriod = PERIODS.find(p => p.id === parseInt(scheduleFormData.periodId));
 
             const payload = {
@@ -162,9 +145,8 @@ const CourseManagement = () => {
                 classLocationId: parseInt(scheduleFormData.classLocationId)
             };
 
-            await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Admin/courses/schedule', payload, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // 🔥 Değişiklik
+            await axiosInstance.post('/Admin/courses/schedule', payload);
             
             alert("Periyot başarıyla eklendi!");
             fetchExistingSchedules(scheduleFormData.courseId); 
@@ -179,6 +161,7 @@ const CourseManagement = () => {
 
     return (
         <DashboardLayout role="admin">
+            {/* UI kodlarında herhangi bir değişiklik yapılmadı */}
             <header className="dashboard-header">
                 <h1>Kurs Yönetimi</h1>
                 <div className="header-actions">
@@ -335,7 +318,6 @@ const CourseManagement = () => {
                                 </select>
                             </div>
 
-                            {/* TEK BİR DERS PERİYODU SEÇİMİ */}
                             <div className="cm-form-group">
                                 <label>Ders Periyodu</label>
                                 <select required value={scheduleFormData.periodId} onChange={(e) => setScheduleFormData({...scheduleFormData, periodId: parseInt(e.target.value)})}>
@@ -359,7 +341,6 @@ const CourseManagement = () => {
                     </div>
                 </div>
             )}
-
         </DashboardLayout>
     );
 };

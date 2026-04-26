@@ -3,46 +3,30 @@ import { FaSignOutAlt, FaClock, FaSpinner } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout'; 
 import './StudentSchedule.css'; 
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+// 🔥 DEĞİŞİKLİK
+import axiosInstance from '../../api/axiosInstance';
 
 const StudentSchedule = () => {
   const navigate = useNavigate();
   
-  // --- STATE TANIMLARI ---
   const [scheduleData, setScheduleData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Saat Dilimleri (Satırlar)
   const timeSlots = [
-    "08:30 - 09:20",
-    "09:30 - 10:20",
-    "10:30 - 11:20",
-    "11:30 - 12:20",
-    "12:30 - 13:20",
-    "13:30 - 14:20",
-    "14:30 - 15:20",
-    "15:30 - 16:20",
-    "16:30 - 17:20",
-    "17:30 - 18:20"
+    "08:30 - 09:20", "09:30 - 10:20", "10:30 - 11:20", "11:30 - 12:20",
+    "12:30 - 13:20", "13:30 - 14:20", "14:30 - 15:20", "15:30 - 16:20",
+    "16:30 - 17:20", "17:30 - 18:20"
   ];
 
-  // Günler (Sütunlar)
   const days = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
-  // Backend'den (C#) İngilizce gelen günleri Türkçeye çeviren sözlük
   const dayTranslator = {
-    "Monday": "Pazartesi",
-    "Tuesday": "Salı",
-    "Wednesday": "Çarşamba",
-    "Thursday": "Perşembe",
-    "Friday": "Cuma",
-    "Saturday": "Cumartesi",
-    "Sunday": "Pazar"
+    "Monday": "Pazartesi", "Tuesday": "Salı", "Wednesday": "Çarşamba",
+    "Thursday": "Perşembe", "Friday": "Cuma", "Saturday": "Cumartesi", "Sunday": "Pazar"
   };
 
-  // Derslere göre sabit renk atamak için fonksiyon
   const getCourseColor = (courseCode) => {
-    const colors = ["teal", "green", "orange", "purple", "pink"]; // blue çıkarıldı
+    const colors = ["teal", "green", "orange", "purple", "pink"];
     let hash = 0;
     for (let i = 0; i < courseCode.length; i++) {
       hash = courseCode.charCodeAt(i) + ((hash << 5) - hash);
@@ -50,18 +34,14 @@ const StudentSchedule = () => {
     return colors[Math.abs(hash) % colors.length];
   };
 
-  // --- API'DEN VERİ ÇEKME ---
   useEffect(() => {
     const fetchSchedule = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem('jwtToken');
         
-        const response = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Course/my-timetable', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        // 🔥 DEĞİŞİKLİK
+        const response = await axiosInstance.get('/Course/my-timetable');
 
-        // Veriyi tabloya uygun formata çevir
         const formattedData = response.data.map(item => {
           const timeParts = item.timeSlot.split('-');
           const formattedTime = `${timeParts[0].trim()} - ${timeParts[1].trim()}`;
@@ -87,7 +67,6 @@ const StudentSchedule = () => {
     fetchSchedule();
   }, []);
 
-  // Belirli bir gün ve saatte ders var mı kontrol et
   const getEventsForCell = (day, time) => {
     return scheduleData.filter(item => item.day === day && item.time === time);
   };
@@ -131,7 +110,6 @@ const StudentSchedule = () => {
                           <div className="cell-content">
                             {events.map((event, idx) => (
                               <div key={idx} className={`event-card color-${event.color}`}>
-                                {/* SADECE DERS KODU VE SINIF BIRAKILDI */}
                                 <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '2px' }}>
                                   {event.courseCode}
                                 </div>

@@ -3,16 +3,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   FaChalkboardTeacher, FaHistory, FaCalendarAlt, 
   FaSpinner, FaTimes, FaCheck, FaTimes as FaCross, FaMinus,
-  FaUserGraduate, FaCog, FaSave, FaToggleOn 
+  FaUserGraduate, FaCog, FaSave, FaToggleOn, FaSignOutAlt 
 } from 'react-icons/fa';
-import axios from 'axios';
+// 🔥 DEĞİŞİKLİK
+import axiosInstance from '../../api/axiosInstance';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './CourseDetails.css';
 
 const CourseDetailsPage = () => {
   const { courseId } = useParams();
+  const navigate = useNavigate();
   
-  // --- GENEL STATE ---
   const [courseTitle, setCourseTitle] = useState('');
   const [courseCode, setCourseCode] = useState('');
   const [loading, setLoading] = useState(true);
@@ -22,16 +23,14 @@ const CourseDetailsPage = () => {
   
   const [allUsers, setAllUsers] = useState([]);
 
-  // --- AYARLAR STATE ---
   const [settings, setSettings] = useState({
     isAutoAttendanceEnabled: false,
     defaultMethod: 1, 
     defaultDurationMinutes: 30,
-    defaultRadiusMeters: 50 // Backend'e göndermek için state'te tutuyoruz ama ekranda göstermiyoruz
+    defaultRadiusMeters: 50 
   });
   const [settingsLoading, setSettingsLoading] = useState(false);
 
-  // --- MODAL STATE ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSessionStudents, setSelectedSessionStudents] = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
@@ -45,19 +44,14 @@ const CourseDetailsPage = () => {
   const fetchAllData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('jwtToken');
-      const config = { headers: { Authorization: `Bearer ${token}` } };
 
-      // 0. TÜM KULLANICILARI ÇEK
+      // 🔥 DEĞİŞİKLİKLER: Tüm axios çağrıları axiosInstance ile değiştirildi
       try {
-        const usersRes = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Auth/all-users', config);
+        const usersRes = await axiosInstance.get('/Auth/all-users');
         setAllUsers(usersRes.data);
-      } catch (e) {
-        console.warn("Tüm kullanıcılar çekilemedi.");
-      }
+      } catch (e) {}
 
-      // 1. DERS ADINI BUL
-      const coursesRes = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/my-courses', config);
+      const coursesRes = await axiosInstance.get('/Attendance/my-courses');
       const currentCourse = coursesRes.data.find(c => c.id.toString() === courseId);
       
       let targetCourseName = "";
@@ -67,16 +61,14 @@ const CourseDetailsPage = () => {
         targetCourseName = currentCourse.courseCode;
       }
 
-      // 2. ÖĞRENCİ İSTATİSTİKLERİ
       let validStudentIds = [];
       try {
-        const statsRes = await axios.get(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/course-stats/${courseId}`, config);
+        const statsRes = await axiosInstance.get(`/Attendance/instructor/course-stats/${courseId}`);
         setStudentStats(statsRes.data);
         validStudentIds = statsRes.data.map(s => s.studentId);
-      } catch (e) { console.warn("İstatistik çekilemedi."); }
+      } catch (e) {}
 
-      // 3. GEÇMİŞ OTURUMLARI ÇEK
-      const sessionRes = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/history/sessions', config);
+      const sessionRes = await axiosInstance.get('/Attendance/instructor/history/sessions');
       
       const filteredSessions = sessionRes.data.filter(session => {
         if (!targetCourseName || !session.courseNames) return false;
@@ -84,21 +76,13 @@ const CourseDetailsPage = () => {
         return sessionCourseList.includes(targetCourseName);
       });
 
-      // 4. İSTATİSTİKLERİ SADECE BU DERS İÇİN HESAPLA
       const sessionsWithExactStats = await Promise.all(filteredSessions.map(async (session) => {
         try {
-          const detailRes = await axios.get(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/history/session-details/${session.sessionId}`, config);
-          
+          const detailRes = await axiosInstance.get(`/Attendance/instructor/history/session-details/${session.sessionId}`);
           const courseStudentsInSession = detailRes.data.filter(student => validStudentIds.includes(student.studentId));
-
           const exactTotal = validStudentIds.length;
           const exactAttended = courseStudentsInSession.filter(s => s.status === 'Present').length;
-
-          return {
-            ...session,
-            exactTotal: exactTotal,
-            exactAttended: exactAttended
-          };
+          return { ...session, exactTotal: exactTotal, exactAttended: exactAttended };
         } catch (err) {
           return { ...session, exactTotal: validStudentIds.length, exactAttended: 0 };
         }
@@ -106,11 +90,10 @@ const CourseDetailsPage = () => {
 
       setPastSessions(sessionsWithExactStats);
 
-      // 5. AYARLARI ÇEK
       try {
-        const settingsRes = await axios.get(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/course-settings/${courseId}`, config);
+        const settingsRes = await axiosInstance.get(`/Attendance/instructor/course-settings/${courseId}`);
         setSettings(settingsRes.data);
-      } catch (e) { console.warn("Ayarlar çekilemedi."); }
+      } catch (e) {}
 
     } catch (err) {
       console.error("Veri hatası:", err);
@@ -122,13 +105,11 @@ const CourseDetailsPage = () => {
   const saveSettings = async () => {
     setSettingsLoading(true);
     try {
-      const token = localStorage.getItem('jwtToken');
-      await axios.put('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/course-settings/update', {
+      // 🔥 DEĞİŞİKLİK
+      await axiosInstance.put('/Attendance/instructor/course-settings/update', {
         courseId: parseInt(courseId),
         ...settings,
         defaultMethod: parseInt(settings.defaultMethod)
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
       alert("✅ Ayarlar başarıyla güncellendi!");
     } catch (err) {
@@ -143,10 +124,8 @@ const CourseDetailsPage = () => {
     setIsModalOpen(true);
     setModalLoading(true);
     try {
-      const token = localStorage.getItem('jwtToken');
-      const response = await axios.get(`https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/history/session-details/${session.sessionId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      // 🔥 DEĞİŞİKLİK
+      const response = await axiosInstance.get(`/Attendance/instructor/history/session-details/${session.sessionId}`);
 
       const validStudentIds = studentStats.map(s => s.studentId);
       const filteredModalStudents = response.data.filter(student => validStudentIds.includes(student.studentId));
@@ -167,10 +146,10 @@ const CourseDetailsPage = () => {
     if (newStatus === 'Excused') statusInt = 3;
 
     try {
-      const token = localStorage.getItem('jwtToken');
-      await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/update-status', {
+      // 🔥 DEĞİŞİKLİK
+      await axiosInstance.post('/Attendance/update-status', {
         sessionId: selectedSessionInfo.sessionId, studentId, status: statusInt, description: "Manuel güncelleme"
-      }, { headers: { Authorization: `Bearer ${token}` } });
+      });
     } catch (err) { alert("Hata: Güncellenemedi."); }
   };
 
@@ -192,18 +171,26 @@ const CourseDetailsPage = () => {
     return foundUser?.schoolNumber ? foundUser.schoolNumber : "-";
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('jwtToken'); 
+    navigate('/'); 
+  };
+
   return (
     <DashboardLayout role="teacher">
+      <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', backgroundColor: '#fff', borderBottom: '1px solid #eee', marginBottom: '20px' }}>
+        <h1 style={{ margin: 0, fontSize: '20px', color: '#333' }}>Ders Detayı</h1>
+        <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <button className="lang-btn" style={{ background: '#e3342f', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>TR</button>
+          <FaSignOutAlt className="logout-icon" onClick={handleLogout} style={{ color: '#0056b3', fontSize: '20px', cursor: 'pointer' }} title="Çıkış Yap" />
+        </div>
+      </header>
+
       <div className="course-details-container">
-        
         <div className="course-header-card">
-            <div className="header-icon-wrapper">
-              <FaChalkboardTeacher /> 
-            </div>
+            <div className="header-icon-wrapper"><FaChalkboardTeacher /></div>
             <div style={{ flex: 1 }}>
-              <h2 className="course-title">
-                {courseCode ? `${courseCode} - ${courseTitle}` : `Ders ID: ${courseId}`}
-              </h2>
+              <h2 className="course-title">{courseCode ? `${courseCode} - ${courseTitle}` : `Ders ID: ${courseId}`}</h2>
               <p className="course-subtitle">Ders genel durumu, geçmiş yoklamalar ve ayarlar</p>
             </div>
         </div>
@@ -212,22 +199,11 @@ const CourseDetailsPage = () => {
           <div style={{ textAlign: 'center', padding: '50px' }}><FaSpinner className="spinner-animation" /> Yükleniyor...</div>
         ) : (
           <>
-            {/* 1. SINIF LİSTESİ */}
             <div className="student-list-card">
-              <div className="list-header">
-                <FaUserGraduate style={{ color: '#555' }} />
-                <h3>Genel Sınıf Listesi ve Devamlılık</h3>
-              </div>
+              <div className="list-header"><FaUserGraduate style={{ color: '#555' }} /><h3>Genel Sınıf Listesi ve Devamlılık</h3></div>
               <div className="table-scroll-area">
                 <table className="student-table">
-                  <thead>
-                    <tr>
-                      <th>Öğrenci Adı</th>
-                      <th>Numara</th>
-                      <th>Katılım</th>
-                      <th>Oran</th>
-                    </tr>
-                  </thead>
+                  <thead><tr><th>Öğrenci Adı</th><th>Numara</th><th>Katılım</th><th>Oran</th></tr></thead>
                   <tbody>
                     {studentStats.length === 0 ? (
                        <tr><td colSpan="4" style={{ padding: '30px', textAlign: 'center', color: '#999' }}>Bu derse kayıtlı öğrenci bulunamadı.</td></tr>
@@ -256,11 +232,7 @@ const CourseDetailsPage = () => {
               </div>
             </div>
 
-            {/* 2. GEÇMİŞ YOKLAMALAR */}
-            <div className="section-title">
-               <FaHistory style={{ color: '#555' }} />
-               <h3 style={{ margin: 0, fontSize: '18px' }}>Geçmiş Yoklamalar</h3>
-            </div>
+            <div className="section-title"><FaHistory style={{ color: '#555' }} /><h3 style={{ margin: 0, fontSize: '18px' }}>Geçmiş Yoklamalar</h3></div>
 
             {pastSessions.length === 0 ? (
                <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#f9f9f9', borderRadius: '10px', border: '1px dashed #ccc' }}>Henüz tamamlanmış bir yoklama yok.</div>
@@ -269,7 +241,6 @@ const CourseDetailsPage = () => {
                 {pastSessions.map((session) => {
                   const total = session.exactTotal || 0;
                   const attended = session.exactAttended || 0;
-                  
                   let percentage = 0;
                   if (total > 0) percentage = Math.round((attended / total) * 100);
                   const barColor = percentage >= 70 ? '#28a745' : percentage >= 40 ? '#ffc107' : '#dc3545';
@@ -284,18 +255,12 @@ const CourseDetailsPage = () => {
                         <FaCalendarAlt className="calendar-icon" />
                         <span>{new Date(session.startTime).toLocaleDateString('tr-TR')}</span>
                       </div>
-                      
-                      <div style={{fontSize: '12px', color:'#777', marginBottom:'10px', fontWeight:'bold'}}>
-                        {courseCode}
-                      </div>
-
+                      <div style={{fontSize: '12px', color:'#777', marginBottom:'10px', fontWeight:'bold'}}>{courseCode}</div>
                       <div className="attendance-text-row">
                          <span className="attendance-label">Katılım Durumu</span>
                          <span className="attendance-value" style={{ color: barColor }}>Var: {attended} / {total}</span>
                       </div>
-                      <div className="progress-track">
-                         <div className="progress-fill" style={{ width: `${percentage}%`, backgroundColor: barColor }}></div>
-                      </div>
+                      <div className="progress-track"><div className="progress-fill" style={{ width: `${percentage}%`, backgroundColor: barColor }}></div></div>
                       <div className="percentage-text">%{percentage} Katılım</div>
                       <button onClick={() => openAttendanceModal(session)} className="detail-btn">Detayları Görüntüle</button>
                     </div>
@@ -304,19 +269,13 @@ const CourseDetailsPage = () => {
               </div>
             )}
 
-            {/* 3. AYARLAR (ÇİFT KOPYA SİLİNDİ, TEKE DÜŞÜRÜLDÜ VE YARIÇAP KALDIRILDI) */}
             <div className="settings-section">
-              <div className="section-title">
-                <FaCog style={{ color: '#555' }} />
-                <h3 style={{ margin: 0, fontSize: '18px' }}>Otomatik Yoklama Yapılandırması</h3>
-              </div>
-
+              <div className="section-title"><FaCog style={{ color: '#555' }} /><h3 style={{ margin: 0, fontSize: '18px' }}>Otomatik Yoklama Yapılandırması</h3></div>
               <div className="settings-card">
                 <div className="settings-header">
                   <h3><FaToggleOn /> Otomatik Başlatma Ayarları</h3>
                   <span style={{ fontSize: '13px', color: '#666' }}>Bu ayarlar ders programındaki saatte yoklamayı otomatik başlatır.</span>
                 </div>
-                
                 <div className="settings-content">
                   <div className="toggle-row">
                     <div className="toggle-info">
@@ -324,49 +283,25 @@ const CourseDetailsPage = () => {
                       <p>Aktif edilirse sistem ders saatinde yoklamayı sizin yerinize başlatır.</p>
                     </div>
                     <label className="switch">
-                      <input 
-                        type="checkbox" 
-                        checked={settings.isAutoAttendanceEnabled} 
-                        onChange={(e) => setSettings({...settings, isAutoAttendanceEnabled: e.target.checked})} 
-                      />
+                      <input type="checkbox" checked={settings.isAutoAttendanceEnabled} onChange={(e) => setSettings({...settings, isAutoAttendanceEnabled: e.target.checked})} />
                       <span className="slider round"></span>
                     </label>
                   </div>
-
                   <div className={`settings-grid ${!settings.isAutoAttendanceEnabled ? 'disabled-area' : ''}`}>
                     <div className="input-group">
                       <label>Varsayılan Yöntem</label>
-                      <select 
-                        value={settings.defaultMethod} 
-                        onChange={(e) => setSettings({...settings, defaultMethod: parseInt(e.target.value)})}
-                        className="form-control"
-                      >
-                        <option value={1}>QR Kod</option>
-                        <option value={2}>Konum (GPS)</option>
-                        <option value={3}>Yüz Tanıma</option>
+                      <select value={settings.defaultMethod} onChange={(e) => setSettings({...settings, defaultMethod: parseInt(e.target.value)})} className="form-control">
+                        <option value={1}>QR Kod</option><option value={2}>Konum (GPS)</option><option value={3}>Yüz Tanıma</option>
                       </select>
                     </div>
-
                     <div className="input-group">
                       <label>Yoklama Açık Kalma Süresi (Dakika)</label>
-                      <input 
-                        type="number" 
-                        value={settings.defaultDurationMinutes}
-                        onChange={(e) => setSettings({...settings, defaultDurationMinutes: parseInt(e.target.value)})}
-                        className="form-control"
-                        placeholder="Örn: 15"
-                      />
+                      <input type="number" value={settings.defaultDurationMinutes} onChange={(e) => setSettings({...settings, defaultDurationMinutes: parseInt(e.target.value)})} className="form-control" placeholder="Örn: 15" />
                       <small style={{color: '#888'}}>Yoklama başladıktan kaç dakika sonra otomatik kapansın?</small>
                     </div>
                   </div>
-
-                  <button 
-                    onClick={saveSettings} 
-                    className="save-btn-large" 
-                    disabled={settingsLoading}
-                  >
-                    {settingsLoading ? <FaSpinner className="spinner-animation" /> : <FaSave />} 
-                    Ayarları Kaydet
+                  <button onClick={saveSettings} className="save-btn-large" disabled={settingsLoading}>
+                    {settingsLoading ? <FaSpinner className="spinner-animation" /> : <FaSave />} Ayarları Kaydet
                   </button>
                 </div>
               </div>
@@ -374,7 +309,6 @@ const CourseDetailsPage = () => {
           </>
         )}
 
-        {/* MODAL PENCERESİ */}
         {isModalOpen && (
           <div className="modal-overlay">
             <div className="modal-content">

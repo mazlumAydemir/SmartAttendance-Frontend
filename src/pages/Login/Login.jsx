@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa'; 
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+
+// 🔥 1. DEĞİŞİKLİK: Normal axios yerine kendi axiosInstance'ımızı import ediyoruz
+import axiosInstance from '../../api/axiosInstance';
+
 import './Login.css';
 import AuthLayout from '../../layouts/AuthLayout';
 
@@ -33,8 +36,8 @@ const Login = () => {
     try {
       setLoading(true);
 
-      // 2. API'ye İstek Atma
-      const response = await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/auth/login', {
+      // 🔥 2. DEĞİŞİKLİK: Uzun URL silindi, sadece endpoint yazıldı
+      const response = await axiosInstance.post('/auth/login', {
         email: email,      
         password: password 
       });

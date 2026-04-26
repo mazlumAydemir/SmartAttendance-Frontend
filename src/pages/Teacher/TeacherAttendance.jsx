@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FaSignOutAlt, FaQrcode, FaSmile, FaMapMarkerAlt, FaChevronRight, FaSpinner, FaCheckCircle, FaCalendarAlt, FaClock, FaSyncAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import QRCode from "react-qr-code";
 import Webcam from "react-webcam";
-// face-api.js importunu silebilirsin ama hata almamak için kalsın dersen dokunma
+// 🔥 DEĞİŞİKLİK
+import axiosInstance from '../../api/axiosInstance';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './TeacherAttendance.css'; 
 
@@ -41,8 +41,6 @@ const TeacherAttendance = () => {
   const scanningRef = useRef(false);
   const timeoutRef = useRef(null);
 
-  // 1. DEĞİŞİKLİK: AI Modellerini yüklemeyi "true" yapıyoruz çünkü artık backend bulacak.
-  // Tarayıcıdaki face-api'ye ihtiyacımız kalmadı.
   const [isModelsLoaded, setIsModelsLoaded] = useState(true); 
 
   const getDotNetTicks = () => {
@@ -68,11 +66,8 @@ const TeacherAttendance = () => {
     const fetchCourses = async () => {
       try {
         setLoadingCourses(true);
-        const token = localStorage.getItem('jwtToken');
-        if (!token) return;
-        const response = await axios.get('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/my-courses', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        // 🔥 DEĞİŞİKLİK
+        const response = await axiosInstance.get('/Attendance/my-courses');
         const rawCourses = response.data;
         const grouped = {};
         rawCourses.forEach(course => {
@@ -130,7 +125,6 @@ const TeacherAttendance = () => {
     if (!selectedCourseIds) { alert("Lütfen bir ders seçiniz!"); return; }
     try {
       setSubmitting(true);
-      const token = localStorage.getItem('jwtToken');
       let methodEnum = 1; let requireFace = false;
       if (attendanceType === 'QRCode') { methodEnum = 1; } 
       else if (attendanceType === 'Location') { methodEnum = 2; } 
@@ -141,17 +135,15 @@ const TeacherAttendance = () => {
         requireDeviceVerification: true, radiusMeters: 50,                        
         startTime: `${selectedDateOnly}T${selectedPeriodTime}:00` 
       };
-      const response = await axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/attendance/start', payload, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-      });
+      
+      // 🔥 DEĞİŞİKLİK
+      const response = await axiosInstance.post('/attendance/start', payload);
       setCreatedSession(response.data);
     } catch (err) {
       alert("HATA: " + (err.response?.data?.message || "Yoklama başlatılamadı."));
     } finally { setSubmitting(false); }
   };
 
-  // 2. DEĞİŞİKLİK: Yüz kırpma işlemini basitleştirdik, artık sadece tam resmi gönderiyoruz.
-  // RetinaFace Backend'de olduğu için tüm resmi tarayabilir.
   const getFullFrameBlob = () => {
     return new Promise((resolve) => {
       const video = webcamRef.current.video;
@@ -163,23 +155,20 @@ const TeacherAttendance = () => {
     });
   };
 
-  // 3. DEĞİŞİKLİK: ARTIK TARAYICI ÇÖKMEYECEK! 
-  // faceapi.detectAllFaces komutunu kaldırdık, resmi direkt gönderiyoruz.
   const processNextFrame = async () => {
       if (!scanningRef.current || !webcamRef.current || !createdSession) return;
       
       try {
           const faceBlob = await getFullFrameBlob();
           const faceFile = new File([faceBlob], `frame_${Date.now()}.jpg`, { type: 'image/jpeg' });
-          const token = localStorage.getItem('jwtToken');
 
           const formData = new FormData();
           formData.append('sessionId', createdSession.sessionId); 
           formData.append('frame', faceFile);
 
-          // Backend'e direkt gönderiyoruz
-          axios.post('https://smartattendance-ffhxgvbsd6h7ancr.westeurope-01.azurewebsites.net/api/Attendance/instructor/scan-crowd', formData, {
-              headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` }
+          // 🔥 DEĞİŞİKLİK
+          axiosInstance.post('/Attendance/instructor/scan-crowd', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
           }).then(response => {
               const newlyRecognized = response.data.recognizedNames;
               if (newlyRecognized && newlyRecognized.length > 0) {
@@ -191,7 +180,6 @@ const TeacherAttendance = () => {
           console.error("Tarama Hatası:", error);
       }
 
-      // Her 2 saniyede bir fotoğraf gönder (Hız ve stabilite dengesi)
       if (scanningRef.current) {
           timeoutRef.current = setTimeout(processNextFrame, 2000); 
       }
@@ -208,7 +196,6 @@ const TeacherAttendance = () => {
 
   return (
     <DashboardLayout role="teacher">
-      {/* RETURN KISMI TAMAMEN AYNI KALDI - HİÇBİR TASARIMIN BOZULMADI */}
       <header className="dashboard-header">
         <h1>Yoklama Başlat</h1>
         <div className="header-actions">
