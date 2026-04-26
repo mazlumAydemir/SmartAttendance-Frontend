@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { FaSignOutAlt, FaSearch, FaFilter, FaPlus, FaEllipsisV, FaGraduationCap, FaBuilding, FaTimes, FaSpinner } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './StudentManagement.css';
-// 🔥 Değişiklik
 import axiosInstance from '../../api/axiosInstance';
 
 const StudentManagement = () => {
@@ -39,9 +38,36 @@ const StudentManagement = () => {
         return initials;
     };
 
+    // 🔥 YAPAY ZEKA İÇİN RESMİ 512x512 KARE YAPAN FONKSİYON
+    const resizeAndCropTo512 = (file) => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 512;
+                    canvas.height = 512;
+                    const ctx = canvas.getContext('2d');
+
+                    const size = Math.min(img.width, img.height);
+                    const startX = (img.width - size) / 2;
+                    const startY = (img.height - size) / 2;
+
+                    ctx.drawImage(img, startX, startY, size, size, 0, 0, 512, 512);
+
+                    canvas.toBlob((blob) => {
+                        resolve(blob);
+                    }, 'image/jpeg', 0.9);
+                };
+            };
+        });
+    };
+
     const fetchStudents = async () => {
         try {
-            // 🔥 Değişiklik
             const [statsRes, listRes] = await Promise.all([
                 axiosInstance.get('/Admin/students/stats'),
                 axiosInstance.get('/Admin/students')
@@ -58,7 +84,6 @@ const StudentManagement = () => {
 
     const fetchLookups = async () => {
         try {
-            // 🔥 Değişiklik
             const [facRes, depRes] = await Promise.all([
                 axiosInstance.get('/Admin/faculties-lookup'),
                 axiosInstance.get('/Admin/departments-lookup')
@@ -78,28 +103,54 @@ const StudentManagement = () => {
 
     const handleAddStudent = async (e) => {
         e.preventDefault();
+        
+        // Yüz tanıma sistemleri için fotoğraf zorunludur
+        if (!formData.profileImage) {
+            alert("Yüz tanıma sistemi için öğrenciye ait net bir fotoğraf yüklenmesi zorunludur!");
+            return;
+        }
+
         setSubmitting(true);
 
         try {
+            // --- 1. ADIM: RESMİ 512x512 KARE YAP ---
+            const processedImageBlob = await resizeAndCropTo512(formData.profileImage);
+            const optimizedFile = new File([processedImageBlob], `${formData.schoolNumber}_face.jpg`, { type: 'image/jpeg' });
+
+            // --- 2. ADIM: ÖĞRENCİYİ VERİTABANINA KAYDET ---
             const submitData = new FormData();
             submitData.append('FullName', formData.fullName);
             submitData.append('Email', formData.email);
             submitData.append('Password', formData.password);
             submitData.append('SchoolNumber', formData.schoolNumber);
             submitData.append('DepartmentId', formData.departmentId);
+            submitData.append('ProfileImage', optimizedFile); 
+
+            const studentResponse = await axiosInstance.post('/Admin/students', submitData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
             
-            if (formData.profileImage) {
-                submitData.append('ProfileImage', formData.profileImage);
+            // Backend'in döndürdüğü yeni Öğrenci ID'sini alıyoruz
+            const newStudentId = studentResponse.data.id; 
+
+            // --- 3. ADIM: YAPAY ZEKAYA YÜZÜ ÖĞRET (FACE REGISTRATION) ---
+            try {
+                const faceData = new FormData();
+                faceData.append('StudentId', newStudentId);
+                faceData.append('FaceImage', optimizedFile); 
+
+                // NOT: Eğer C# tarafında bu endpointin adı farklıysa burayı düzeltmelisin
+                await axiosInstance.post('/Attendance/register-face', faceData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+            } catch (faceError) {
+                console.error("Yüz yapay zekaya kaydedilemedi:", faceError);
+                // Öğrenci eklendi ama yüz servisine ulaşılamadıysa uyarı ver
+                alert("Uyarı: Öğrenci başarıyla eklendi FAKAT Yüz Tanıma sistemine kaydedilemedi. Yüz tanıma servisi aktif olmayabilir.");
             }
 
-            // 🔥 Değişiklik: Sadece Content-Type belirttik, token axiosInstance'dan geliyor
-            await axiosInstance.post('/Admin/students', submitData, {
-                headers: { 
-                    'Content-Type': 'multipart/form-data' 
-                }
-            });
-
-            alert("Öğrenci başarıyla eklendi!");
+            // İŞLEM TAMAMLANDI
+            alert("Öğrenci ve Yüz Verisi başarıyla sisteme kaydedildi!");
             setShowModal(false);
             setFormData({ fullName: '', email: '', password: '', schoolNumber: '', departmentId: '', profileImage: null });
             setSelectedFacultyId(''); 
@@ -118,7 +169,6 @@ const StudentManagement = () => {
         if (!window.confirm(`${fullName} isimli öğrenciyi ${actionText} duruma getirmek istediğinize emin misiniz?`)) return;
 
         try {
-            // 🔥 Değişiklik
             await axiosInstance.put(`/Admin/students/${id}/toggle-status`, {});
             fetchStudents();
         } catch (error) {
@@ -131,7 +181,6 @@ const StudentManagement = () => {
         s?.schoolNumber?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Resim url'sini oluştururken baseURL'i dinamik olarak ENV'den alıyoruz
     const getBaseUrl = () => import.meta.env.VITE_API_BASE_URL.replace(/\/api\/?$/, '');
 
     return (
@@ -182,7 +231,6 @@ const StudentManagement = () => {
                                 <div className="sm-card-avatar" style={student.profilePictureUrl ? { overflow: 'hidden', padding: 0 } : {}}>
                                     {student.profilePictureUrl ? (
                                         <img 
-                                            // 🔥 Değişiklik: Resim linki de dinamik oldu
                                             src={`${getBaseUrl()}${student.profilePictureUrl}`} 
                                             alt={student.fullName} 
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
@@ -217,7 +265,6 @@ const StudentManagement = () => {
                 )}
             </div>
 
-            {/* ÖĞRENCİ EKLEME MODALI */}
             {showModal && (
                 <div className="sm-modal-overlay">
                     <div className="sm-modal-box">
@@ -228,12 +275,16 @@ const StudentManagement = () => {
                         
                         <form onSubmit={handleAddStudent}>
                             <div className="sm-form-group">
-                                <label>Profil Resmi (İsteğe Bağlı)</label>
+                                <label>Profil Resmi (Yüz Tanıma İçin Zorunlu)</label>
                                 <input 
                                     type="file" 
+                                    required
                                     accept="image/*"
                                     onChange={(e) => setFormData({...formData, profileImage: e.target.files[0]})} 
                                 />
+                                <small style={{color: '#888', display: 'block', marginTop: '5px'}}>
+                                    Öğrencinin net bir fotoğrafını seçin. Sistem otomatik olarak 512x512 boyutunda yüz tanıma sistemine yollayacaktır.
+                                </small>
                             </div>
 
                             <div className="sm-form-group">
