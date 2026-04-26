@@ -139,8 +139,8 @@ const StudentManagement = () => {
                 faceData.append('StudentId', newStudentId);
                 faceData.append('FaceImage', optimizedFile); 
 
-                // NOT: Eğer C# tarafında bu endpointin adı farklıysa burayı düzeltmelisin
-                await axiosInstance.post('/Attendance/register-face', faceData, {
+                // 🔥 DÜZELTME BURADA: /Admin/register-face OLARAK GÜNCELLENDİ!
+                await axiosInstance.post('/Admin/register-face', faceData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
             } catch (faceError) {

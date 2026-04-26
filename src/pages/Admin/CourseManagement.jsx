@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaSignOutAlt, FaSearch, FaFilter, FaPlus, FaUsers, FaTimes, FaSpinner, FaUserCog, FaCalendarAlt } from 'react-icons/fa';
+// 🔥 DEĞİŞİKLİK: FaChalkboardTeacher ikonu import edildi
+import { FaSignOutAlt, FaSearch, FaFilter, FaPlus, FaUsers, FaTimes, FaSpinner, FaUserCog, FaCalendarAlt, FaLink, FaChalkboardTeacher } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './CourseManagement.css';
-// 🔥 Değişiklik: axiosInstance eklendi
 import axiosInstance from '../../api/axiosInstance';
 
 const PERIODS = [
@@ -40,6 +40,9 @@ const CourseManagement = () => {
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [locations, setLocations] = useState([]);
     const [existingSchedules, setExistingSchedules] = useState([]);
+    
+    const [jointCourseIds, setJointCourseIds] = useState([]);
+
     const [scheduleFormData, setScheduleFormData] = useState({
         courseId: '',
         dayOfWeek: '1',
@@ -49,7 +52,6 @@ const CourseManagement = () => {
 
     const fetchCourses = async () => {
         try {
-            // 🔥 Değişiklik
             const res = await axiosInstance.get('/Admin/courses');
             setCourses(res.data);
         } catch (error) { console.error("Dersler çekilirken hata:", error); } 
@@ -58,7 +60,6 @@ const CourseManagement = () => {
 
     const fetchLookups = async () => {
         try {
-            // 🔥 Değişiklik
             const [depRes, instRes, locRes] = await Promise.all([
                 axiosInstance.get('/Admin/departments-lookup'),
                 axiosInstance.get('/Admin/instructors-lookup'),
@@ -78,7 +79,6 @@ const CourseManagement = () => {
     const handleAddCourse = async (e) => {
         e.preventDefault();
         try {
-            // 🔥 Değişiklik
             await axiosInstance.post('/Admin/courses', formData);
             alert("Ders başarıyla eklendi!");
             setShowAddModal(false);
@@ -91,7 +91,6 @@ const CourseManagement = () => {
         setSelectedCourse(course);
         setShowStudentModal(true);
         try {
-            // 🔥 Değişiklik
             const res = await axiosInstance.get(`/Admin/courses/${course.id}/students`);
             setCourseStudents(res.data);
         } catch (error) { console.error(error); }
@@ -107,7 +106,6 @@ const CourseManagement = () => {
         setSavingStudents(true);
         try {
             const selectedIds = courseStudents.filter(s => s.isEnrolled).map(s => s.userId);
-            // 🔥 Değişiklik
             await axiosInstance.post(`/Admin/courses/${selectedCourse.id}/assign-students`, selectedIds);
             
             alert("Öğrenciler başarıyla atandı!");
@@ -119,7 +117,6 @@ const CourseManagement = () => {
 
     const fetchExistingSchedules = async (courseId) => {
         try {
-            // 🔥 Değişiklik
             const res = await axiosInstance.get(`/Admin/courses/${courseId}/schedules`);
             setExistingSchedules(res.data);
         } catch (error) { console.error("Programlar çekilemedi:", error); }
@@ -128,6 +125,7 @@ const CourseManagement = () => {
     const openScheduleModal = async (course) => {
         setSelectedCourse(course);
         setScheduleFormData({...scheduleFormData, courseId: course.id});
+        setJointCourseIds([]); 
         setShowScheduleModal(true);
         fetchExistingSchedules(course.id);
     };
@@ -137,18 +135,24 @@ const CourseManagement = () => {
         try {
             const selectedPeriod = PERIODS.find(p => p.id === parseInt(scheduleFormData.periodId));
 
-            const payload = {
-                courseId: scheduleFormData.courseId,
+            const payloadBase = {
                 dayOfWeek: parseInt(scheduleFormData.dayOfWeek),
                 startTime: selectedPeriod.start + ":00",
                 endTime: selectedPeriod.end + ":00",
                 classLocationId: parseInt(scheduleFormData.classLocationId)
             };
 
-            // 🔥 Değişiklik
-            await axiosInstance.post('/Admin/courses/schedule', payload);
+            const requests = [
+                axiosInstance.post('/Admin/courses/schedule', { ...payloadBase, courseId: scheduleFormData.courseId })
+            ];
+
+            jointCourseIds.forEach(id => {
+                requests.push(axiosInstance.post('/Admin/courses/schedule', { ...payloadBase, courseId: id }));
+            });
+
+            await Promise.all(requests);
             
-            alert("Periyot başarıyla eklendi!");
+            alert("Program tüm seçili derslere başarıyla eklendi!");
             fetchExistingSchedules(scheduleFormData.courseId); 
             
         } catch (error) { alert("Program eklenirken hata oluştu!"); }
@@ -161,7 +165,6 @@ const CourseManagement = () => {
 
     return (
         <DashboardLayout role="admin">
-            {/* UI kodlarında herhangi bir değişiklik yapılmadı */}
             <header className="dashboard-header">
                 <h1>Kurs Yönetimi</h1>
                 <div className="header-actions">
@@ -204,8 +207,17 @@ const CourseManagement = () => {
                                             </div>
                                         </div>
 
-                                        <div className="cm-course-code">{course.courseCode}</div>
-                                        <div className="cm-course-footer">
+                                        {/* 🔥 DEĞİŞİKLİK BURADA: Ders Kodu ve Eğitmen Adı Yanyana */}
+                                        <div className="cm-course-code" style={{ display: 'flex', alignItems: 'center', gap: '15px', marginTop: '5px' }}>
+                                            <span style={{ fontWeight: 'bold' }}>{course.courseCode}</span>
+                                            
+                                            <span style={{ fontSize: '13px', color: '#555', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 'normal' }}>
+                                                <FaChalkboardTeacher style={{ color: '#888' }} />
+                                                {course.instructorName ? course.instructorName : "Hoca Atanmamış"}
+                                            </span>
+                                        </div>
+                                        
+                                        <div className="cm-course-footer" style={{ marginTop: '10px' }}>
                                             <div className="cm-student-count"><FaUsers className="cm-users-icon" /> {course.studentCount} Öğrenci</div>
                                             <span className={`cm-badge ${course.isActive ? 'active' : 'inactive'}`}>{course.isActive ? 'Aktif' : 'Pasif'}</span>
                                         </div>
@@ -228,7 +240,7 @@ const CourseManagement = () => {
                         <form onSubmit={handleAddCourse}>
                             <div className="cm-form-group">
                                 <label>Ders Kodu</label>
-                                <input type="text" required value={formData.courseCode} onChange={(e) => setFormData({...formData, courseCode: e.target.value})} placeholder="Örn: CMPE428" />
+                                <input type="text" required value={formData.courseCode} onChange={(e) => setFormData({...formData, courseCode: e.target.value})} placeholder="Örn: CMPE428 veya BLGM353-01" />
                             </div>
                             <div className="cm-form-group">
                                 <label>Ders Adı</label>
@@ -290,12 +302,12 @@ const CourseManagement = () => {
                 </div>
             )}
 
-            {/* DERS PROGRAMI (TEK PERİYOT) EKLEME MODALI */}
+            {/* DERS PROGRAMI (TEK PERİYOT VE ORTAK DERS) EKLEME MODALI */}
             {showScheduleModal && (
                 <div className="cm-modal-overlay">
                     <div className="cm-modal-box">
                         <div className="cm-modal-header">
-                            <h2>{selectedCourse?.courseName} <br/><small style={{fontSize:'13px', color:'#777'}}>Ders Programı</small></h2>
+                            <h2>{selectedCourse?.courseName} <br/><small style={{fontSize:'13px', color:'#777'}}>Ders Programı Ayarları</small></h2>
                             <FaTimes className="cm-modal-close" onClick={() => setShowScheduleModal(false)} />
                         </div>
 
@@ -333,7 +345,32 @@ const CourseManagement = () => {
                                 </select>
                             </div>
 
-                            <div className="cm-modal-footer">
+                            {/* ORTAK DERS SEÇİMİ ALANI */}
+                            <div className="cm-form-group" style={{ marginTop: '20px' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#1976d2', fontWeight: 'bold' }}>
+                                    <FaLink /> Ortak İşlenecek Dersler / Gruplar (İsteğe Bağlı)
+                                </label>
+                                <p style={{ fontSize: '11px', color: '#666', margin: '4px 0 10px 0', lineHeight: '1.4' }}>
+                                    Eğer bu ders başka bir kodla (örn: CMPE419) veya başka bir grupla aynı amfide, aynı hocayla ve aynı saatte işleniyorsa aşağıdan seçebilirsiniz. Seçilen derslere de bu program otomatik eklenecektir.
+                                </p>
+                                <div style={{ maxHeight: '130px', overflowY: 'auto', border: '1px solid #ccc', padding: '10px', borderRadius: '6px', background: '#fcfcfc' }}>
+                                    {courses.filter(c => c.id !== selectedCourse?.id).map(c => (
+                                        <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={jointCourseIds.includes(c.id)}
+                                                onChange={(e) => {
+                                                    if(e.target.checked) setJointCourseIds([...jointCourseIds, c.id]);
+                                                    else setJointCourseIds(jointCourseIds.filter(id => id !== c.id));
+                                                }}
+                                            />
+                                            {c.courseCode} - {c.courseName}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="cm-modal-footer" style={{ marginTop: '25px' }}>
                                 <button type="button" className="cm-btn-cancel" onClick={() => setShowScheduleModal(false)}>Kapat</button>
                                 <button type="submit" className="cm-btn-submit">Programı Ekle</button>
                             </div>
