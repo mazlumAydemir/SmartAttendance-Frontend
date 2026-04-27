@@ -3,7 +3,6 @@ import { FaSignOutAlt, FaQrcode, FaSmile, FaMapMarkerAlt, FaChevronRight, FaSpin
 import { useNavigate } from 'react-router-dom';
 import QRCode from "react-qr-code";
 import Webcam from "react-webcam";
-// 🔥 DEĞİŞİKLİK
 import axiosInstance from '../../api/axiosInstance';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './TeacherAttendance.css'; 
@@ -66,7 +65,6 @@ const TeacherAttendance = () => {
     const fetchCourses = async () => {
       try {
         setLoadingCourses(true);
-        // 🔥 DEĞİŞİKLİK
         const response = await axiosInstance.get('/Attendance/my-courses');
         const rawCourses = response.data;
         const grouped = {};
@@ -136,7 +134,6 @@ const TeacherAttendance = () => {
         startTime: `${selectedDateOnly}T${selectedPeriodTime}:00` 
       };
       
-      // 🔥 DEĞİŞİKLİK
       const response = await axiosInstance.post('/attendance/start', payload);
       setCreatedSession(response.data);
     } catch (err) {
@@ -155,6 +152,7 @@ const TeacherAttendance = () => {
     });
   };
 
+  // 🔥 DEĞİŞTİRİLEN VE HATALARDAN ARINDIRILAN KISIM
   const processNextFrame = async () => {
       if (!scanningRef.current || !webcamRef.current || !createdSession) return;
       
@@ -163,18 +161,27 @@ const TeacherAttendance = () => {
           const faceFile = new File([faceBlob], `frame_${Date.now()}.jpg`, { type: 'image/jpeg' });
 
           const formData = new FormData();
-          formData.append('sessionId', createdSession.sessionId); 
+          // Backend id veya sessionId dönebilir, ikisini de garantiye alıyoruz
+          const activeSessionId = createdSession.sessionId || createdSession.id;
+          formData.append('sessionId', activeSessionId); 
           formData.append('frame', faceFile);
 
-          // 🔥 DEĞİŞİKLİK
           axiosInstance.post('/Attendance/instructor/scan-crowd', formData, {
               headers: { 'Content-Type': 'multipart/form-data' }
           }).then(response => {
-              const newlyRecognized = response.data.recognizedNames;
-              if (newlyRecognized && newlyRecognized.length > 0) {
+              // Backend direkt liste dönebilir veya obje içinde dönebilir
+              const newlyRecognized = response.data.recognizedNames || response.data;
+              
+              // Tarayıcı konsolunda gelen veriyi görelim (Hata ayıklamak için)
+              console.log("📸 [AI TARAMA SONUCU]:", newlyRecognized);
+
+              // Eğer dönen veri bir diziyse ve içi boş değilse listeye ekle
+              if (newlyRecognized && Array.isArray(newlyRecognized) && newlyRecognized.length > 0) {
                   setRecognizedNames(prev => [...new Set([...prev, ...newlyRecognized])]);
               }
-          }).catch(e => console.error("Tanıma hatası:", e));
+          }).catch(e => {
+              console.error("Tanıma hatası:", e);
+          });
 
       } catch (error) {
           console.error("Tarama Hatası:", error);
