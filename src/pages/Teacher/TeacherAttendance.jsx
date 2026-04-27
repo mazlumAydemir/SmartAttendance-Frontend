@@ -280,8 +280,8 @@ const TeacherAttendance = () => {
                               ref={webcamRef}
                               screenshotFormat="image/jpeg"
                               videoConstraints={{ 
-                                  facingMode: facingMode,
-                                 
+                                  facingMode: facingMode
+                                  
                               }} 
                               onUserMedia={handleCameraReady} 
                               style={{ width: '100%', height: 'auto', objectFit: 'cover' }}
