@@ -40,8 +40,6 @@ const TeacherAttendance = () => {
   const scanningRef = useRef(false);
   const timeoutRef = useRef(null);
 
-  const [isModelsLoaded, setIsModelsLoaded] = useState(true); 
-
   const getDotNetTicks = () => {
     const now = new Date();
     const expiryDate = new Date(now.getTime() + 3600000);
@@ -141,18 +139,29 @@ const TeacherAttendance = () => {
     } finally { setSubmitting(false); }
   };
 
+  // 🔥 DÜZELTME 1: Telefondan gelen devasa fotoğrafları küçültüyoruz!
   const getFullFrameBlob = () => {
     return new Promise((resolve) => {
       const video = webcamRef.current.video;
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext('2d').drawImage(video, 0, 0);
+      
+      const MAX_WIDTH = 800; // İnterneti yormaması için 800px ile sınırla
+      let width = video.videoWidth;
+      let height = video.videoHeight;
+
+      if (width > MAX_WIDTH) {
+          height = Math.round((height * MAX_WIDTH) / width);
+          width = MAX_WIDTH;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      
+      canvas.getContext('2d').drawImage(video, 0, 0, width, height);
       canvas.toBlob((blob) => { resolve(blob); }, 'image/jpeg', 0.8);
     });
   };
 
-  // 🔥 DEĞİŞTİRİLEN VE HATALARDAN ARINDIRILAN KISIM
   const processNextFrame = async () => {
       if (!scanningRef.current || !webcamRef.current || !createdSession) return;
       
@@ -161,7 +170,6 @@ const TeacherAttendance = () => {
           const faceFile = new File([faceBlob], `frame_${Date.now()}.jpg`, { type: 'image/jpeg' });
 
           const formData = new FormData();
-          // Backend id veya sessionId dönebilir, ikisini de garantiye alıyoruz
           const activeSessionId = createdSession.sessionId || createdSession.id;
           formData.append('sessionId', activeSessionId); 
           formData.append('frame', faceFile);
@@ -169,13 +177,9 @@ const TeacherAttendance = () => {
           axiosInstance.post('/Attendance/instructor/scan-crowd', formData, {
               headers: { 'Content-Type': 'multipart/form-data' }
           }).then(response => {
-              // Backend direkt liste dönebilir veya obje içinde dönebilir
               const newlyRecognized = response.data.recognizedNames || response.data;
-              
-              // Tarayıcı konsolunda gelen veriyi görelim (Hata ayıklamak için)
               console.log("📸 [AI TARAMA SONUCU]:", newlyRecognized);
 
-              // Eğer dönen veri bir diziyse ve içi boş değilse listeye ekle
               if (newlyRecognized && Array.isArray(newlyRecognized) && newlyRecognized.length > 0) {
                   setRecognizedNames(prev => [...new Set([...prev, ...newlyRecognized])]);
               }
@@ -188,7 +192,8 @@ const TeacherAttendance = () => {
       }
 
       if (scanningRef.current) {
-          timeoutRef.current = setTimeout(processNextFrame, 2000); 
+          // 🔥 DÜZELTME 2: 2000ms yerine 1000ms (1 saniye) yaparak taramayı hızlandırdık
+          timeoutRef.current = setTimeout(processNextFrame, 1000); 
       }
   };
 
@@ -275,15 +280,16 @@ const TeacherAttendance = () => {
                                 </div>
                             )}
 
+                          {/* 🔥 DÜZELTME 3: Hata yakalayıcı eklendi ve boyut zorlaması kaldırıldı */}
                           <Webcam
                               audio={false}
                               ref={webcamRef}
                               screenshotFormat="image/jpeg"
                               videoConstraints={{ 
                                   facingMode: facingMode
-                                  
                               }} 
-                              onUserMedia={handleCameraReady} 
+                              onUserMedia={handleCameraReady}
+                              onUserMediaError={(err) => alert("Kamera Hatası: " + err.message + "\n\nLütfen cihazınızdan kameraya izin verin ve adresin (HTTPS) ile başladığından emin olun.")} 
                               style={{ width: '100%', height: 'auto', objectFit: 'cover' }}
                           />
                         </div> 
