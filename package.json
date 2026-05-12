@@ -15,6 +15,7 @@
     "axios": "^1.13.5",
     "face-api.js": "^0.22.2",
     "firebase": "^12.9.0",
+    "framer-motion": "^12.38.0",
     "jsqr": "^1.4.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

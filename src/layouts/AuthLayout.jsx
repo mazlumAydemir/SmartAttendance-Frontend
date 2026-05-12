@@ -15,16 +15,7 @@ const AuthLayout = ({ children }) => {
     }}>
         {/* Sağ üstteki TR butonu */}
         <div style={{ position: 'absolute', top: '20px', right: '20px' }}>
-            <button style={{
-                backgroundColor: '#dc3545', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '12px', 
-                padding: '5px 10px', 
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
-            }}>TR</button>
+        
         </div>
         
       {children}
