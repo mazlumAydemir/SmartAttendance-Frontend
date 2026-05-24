@@ -203,7 +203,7 @@ const TeacherAttendance = () => {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
         // 2. Base64 yerine doğrudan Blob (Dosya) oluştur (Çok daha hızlı)
-        const frameBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+        const frameBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 1.0));
         const frameFile = new File([frameBlob], `hd_frame_${Date.now()}.jpg`, { type: 'image/jpeg' });
 
         // 3. API'ye Yolla
@@ -375,20 +375,21 @@ const TeacherAttendance = () => {
                             </div>
                           ))}
                         </div>
-
-                        <Webcam
+                          <Webcam
                           audio={false}
                           ref={webcamRef}
                           screenshotFormat="image/jpeg"
-                          screenshotQuality={0.9} 
+                          screenshotQuality={1.0} // Kaliteyi %90'dan %100'e (kayıpsız) çektik
                           videoConstraints={{ 
                             facingMode: facingMode,
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 }
+                            width: { ideal: 3840, min: 1080 }, // Tarayıcıyı 4K'ya zorla, olmazsa en az 1080p al!
+                            height: { ideal: 2160, min: 720 }
                           }} 
                           onUserMedia={handleCameraReady} 
                           style={{ width: '100%', height: 'auto', objectFit: 'cover' }}
                         />
+  
+                       
                       </div>
 
                       <style>

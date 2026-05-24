@@ -3,9 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   FaChalkboardTeacher, FaHistory, FaCalendarAlt, 
   FaSpinner, FaTimes, FaCheck, FaTimes as FaCross, FaMinus,
-  FaUserGraduate, FaCog, FaSave, FaToggleOn, FaSignOutAlt 
-} from 'react-icons/fa';
-// 🔥 DEĞİŞİKLİK
+  FaUserGraduate, FaCog, FaSave, FaToggleOn, FaSignOutAlt, FaFileExcel 
+} from 'react-icons/fa'; // 🔥 YENİ: FaFileExcel eklendi
+import * as XLSX from 'xlsx'; // 🔥 YENİ: Excel kütüphanesi eklendi
 import axiosInstance from '../../api/axiosInstance';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './CourseDetails.css';
@@ -45,7 +45,6 @@ const CourseDetailsPage = () => {
     try {
       setLoading(true);
 
-      // 🔥 DEĞİŞİKLİKLER: Tüm axios çağrıları axiosInstance ile değiştirildi
       try {
         const usersRes = await axiosInstance.get('/Auth/all-users');
         setAllUsers(usersRes.data);
@@ -105,7 +104,6 @@ const CourseDetailsPage = () => {
   const saveSettings = async () => {
     setSettingsLoading(true);
     try {
-      // 🔥 DEĞİŞİKLİK
       await axiosInstance.put('/Attendance/instructor/course-settings/update', {
         courseId: parseInt(courseId),
         ...settings,
@@ -124,7 +122,6 @@ const CourseDetailsPage = () => {
     setIsModalOpen(true);
     setModalLoading(true);
     try {
-      // 🔥 DEĞİŞİKLİK
       const response = await axiosInstance.get(`/Attendance/instructor/history/session-details/${session.sessionId}`);
 
       const validStudentIds = studentStats.map(s => s.studentId);
@@ -146,7 +143,6 @@ const CourseDetailsPage = () => {
     if (newStatus === 'Excused') statusInt = 3;
 
     try {
-      // 🔥 DEĞİŞİKLİK
       await axiosInstance.post('/Attendance/update-status', {
         sessionId: selectedSessionInfo.sessionId, studentId, status: statusInt, description: "Manuel güncelleme"
       });
@@ -176,6 +172,46 @@ const CourseDetailsPage = () => {
     navigate('/'); 
   };
 
+  // 🔥 YENİ: EXCEL ÇIKTISI ALMA FONKSİYONU 🔥
+  const exportToExcel = () => {
+    if (studentStats.length === 0) {
+      alert("Dışa aktarılacak veri bulunamadı!");
+      return;
+    }
+
+    // Excel'e yazılacak verileri Türkçeleştirip düzenliyoruz
+    const dataToExport = studentStats.map(student => ({
+      "Öğrenci Adı": student.studentName,
+      "Okul Numarası": resolveSchoolNumber(student.studentId, student.schoolNumber),
+      "Katıldığı Ders Sayısı": student.attendedSessions,
+      "Toplam Ders Sayısı": student.totalSessions,
+      "Devamlılık Oranı (%)": student.attendancePercentage,
+      "Durum": student.attendancePercentage >= 70 ? "Geçer" : "Kaldı (Devamsızlık)"
+    }));
+
+    // Çalışma sayfası (worksheet) oluştur
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+
+    // Sütun genişliklerini ayarla
+    const wscols = [
+      { wch: 25 }, // İsim
+      { wch: 15 }, // Numara
+      { wch: 20 }, // Katıldığı Ders
+      { wch: 20 }, // Toplam Ders
+      { wch: 20 }, // Oran
+      { wch: 20 }  // Durum
+    ];
+    worksheet['!cols'] = wscols;
+
+    // Çalışma kitabı (workbook) oluştur ve sayfayı ekle
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Yoklama Raporu");
+
+    // Excel dosyasını indir
+    const fileName = `${courseCode}_Devamlilik_Raporu_${new Date().toISOString().slice(0,10)}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  };
+
   return (
     <DashboardLayout role="teacher">
       <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', backgroundColor: '#fff', borderBottom: '1px solid #eee', marginBottom: '20px' }}>
@@ -200,7 +236,16 @@ const CourseDetailsPage = () => {
         ) : (
           <>
             <div className="student-list-card">
-              <div className="list-header"><FaUserGraduate style={{ color: '#555' }} /><h3>Genel Sınıf Listesi ve Devamlılık</h3></div>
+              <div className="list-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <FaUserGraduate style={{ color: '#555' }} />
+                  <h3>Genel Sınıf Listesi ve Devamlılık</h3>
+                </div>
+                {/* 🔥 YENİ: EXCEL BUTONU 🔥 */}
+                <button className="btn-export-excel" onClick={exportToExcel} disabled={studentStats.length === 0}>
+                  <FaFileExcel size={16} /> Raporu İndir (Excel)
+                </button>
+              </div>
               <div className="table-scroll-area">
                 <table className="student-table">
                   <thead><tr><th>Öğrenci Adı</th><th>Numara</th><th>Katılım</th><th>Oran</th></tr></thead>

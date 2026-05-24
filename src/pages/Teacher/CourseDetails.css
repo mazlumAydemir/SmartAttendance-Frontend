@@ -478,3 +478,49 @@ input:checked + .slider:before { transform: translateX(26px); }
   .settings-header h3 { font-size: 15px; }
   .settings-header span { display: none; /* Çok uzun başlık açıklamasını mobilde gizle */ }
 }
+
+/* 🔥 YENİ EXCEL İNDİRME BUTONU STİLİ 🔥 */
+.btn-export-excel {
+  background-color: #107c41; /* Excel yeşili */
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(16, 124, 65, 0.2);
+  transition: all 0.3s ease;
+}
+
+.btn-export-excel:hover:not(:disabled) {
+  background-color: #0b5e2f;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(16, 124, 65, 0.3);
+}
+
+.btn-export-excel:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-export-excel:disabled {
+  background-color: #a5d6a7;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Mobilde butonu da hizalamak için küçük bir ayar */
+@media (max-width: 768px) {
+  .list-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .btn-export-excel {
+    width: 100%;
+    justify-content: center;
+  }
+}
