@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FaSignOutAlt, FaQrcode, FaSmile, FaMapMarkerAlt, FaChevronRight, FaSpinner, FaCheckCircle, FaCalendarAlt, FaClock, FaSyncAlt, FaSearchPlus } from 'react-icons/fa';
+import { FaSignOutAlt, FaQrcode, FaSmile, FaMapMarkerAlt, FaChevronRight, FaSpinner, FaCheckCircle, FaCalendarAlt, FaClock, FaSyncAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import QRCode from "react-qr-code";
 import Webcam from "react-webcam";
@@ -44,12 +44,9 @@ const TeacherAttendance = () => {
   const [liveNotifications, setLiveNotifications] = useState([]);
   const activeRecognizedNames = useRef([]); 
 
-  // 🆕 KAMERA YÖNETİMİ (S24 Ultra için)
+  // KAMERA YÖNETİMİ
   const [availableCameras, setAvailableCameras] = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState(null);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [zoomSupported, setZoomSupported] = useState(false);
-  const [maxZoom, setMaxZoom] = useState(1);
   const [cameraError, setCameraError] = useState(null);
 
   // SCANNING CONTROL
@@ -57,7 +54,6 @@ const TeacherAttendance = () => {
   const scanningRef = useRef(false);
   const timeoutRef = useRef(null);
   const processingRef = useRef(false);
-  const frameCountRef = useRef(0);
 
   const getDotNetTicks = () => {
     const now = new Date();
@@ -65,83 +61,61 @@ const TeacherAttendance = () => {
     return (expiryDate.getTime() * 10000) + 621355968000000000;
   };
 
-  // 🆕 KAMERALARI LİSTELE (modal açılınca)
+  // KAMERALARI LİSTELE VE ANA KAMERAYI BUL
   useEffect(() => {
     if (showModal && attendanceType === 'FaceRecognition') {
-      // Önce izin iste, sonra kameraları listele
       navigator.mediaDevices.getUserMedia({ video: true })
         .then(stream => {
-          // İzin alındı, stream'i hemen kapat (Webcam kendisi açacak)
           stream.getTracks().forEach(t => t.stop());
-          
           return navigator.mediaDevices.enumerateDevices();
         })
         .then(allDevices => {
           const videoDevices = allDevices.filter(d => d.kind === 'videoinput');
-          console.log("📷 Mevcut Kameralar:", videoDevices.map(d => d.label));
           setAvailableCameras(videoDevices);
           
-          // S24 Ultra'da ana arka kamerayı seç (geniş açı veya tele değil!)
-          // Samsung kameralar genelde: "camera2 0, facing back" = ana arka kamera
+          // S24 Ultra için bozuk geniş açıları filtrele, direkt ana kamerayı al
           let mainCamera = videoDevices.find(d => {
             const label = d.label.toLowerCase();
             return label.includes('back') && 
-                   !label.includes('wide') &&    // ultra-wide değil
-                   !label.includes('tele') &&     // telephoto değil
-                   !label.includes('depth');      // derinlik sensörü değil
+                   !label.includes('wide') &&    
+                   !label.includes('tele') &&     
+                   !label.includes('depth');      
           });
           
-          // Bulunamadıysa: "back" içeren ilk kamera
-          if (!mainCamera) {
-            mainCamera = videoDevices.find(d => 
-              d.label.toLowerCase().includes('back')
-            );
-          }
+          if (!mainCamera) mainCamera = videoDevices.find(d => d.label.toLowerCase().includes('back'));
+          if (!mainCamera && videoDevices.length > 0) mainCamera = videoDevices.find(d => d.label.includes('0,')) || videoDevices[0];
           
-          // Yine bulunamadıysa: Samsung'da genelde 0 numaralı kamera ana kameradır
-          if (!mainCamera && videoDevices.length > 0) {
-            mainCamera = videoDevices.find(d => d.label.includes('0,')) || videoDevices[0];
-          }
-          
-          if (mainCamera) {
-            console.log("✅ Seçilen Ana Kamera:", mainCamera.label);
-            setSelectedDeviceId(mainCamera.deviceId);
-          }
+          if (mainCamera) setSelectedDeviceId(mainCamera.deviceId);
         })
         .catch(err => {
-          console.error("❌ Kamera erişim hatası:", err);
+          console.error("Kamera erişim hatası:", err);
           setCameraError(`Kamera izni alınamadı: ${err.name}`);
         });
     }
   }, [showModal, attendanceType]);
 
-  // QR Kodu güncelle
+  // QR Kodu Güncelle
   useEffect(() => {
     let intervalId;
     if (createdSession && createdSession.sessionCode && attendanceType === 'QRCode') {
       const updateQR = () => {
-        const ticks = getDotNetTicks();
-        const newContent = `${createdSession.sessionCode}||${ticks}`;
-        setQrContent(newContent);
+        setQrContent(`${createdSession.sessionCode}||${getDotNetTicks()}`);
       };
       updateQR(); 
       intervalId = setInterval(updateQR, 12000); 
     }
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
+    return () => { if (intervalId) clearInterval(intervalId); };
   }, [createdSession, attendanceType]);
 
-  // Dersleri yükle
+  // Dersleri Yükle
   useEffect(() => {
     const fetchCourses = async () => {
       try {
         setLoadingCourses(true);
         const response = await axiosInstance.get('/Attendance/my-courses');
-        const rawCourses = response.data;
         
         const grouped = {};
-        rawCourses.forEach(course => {
+        response.data.forEach(course => {
           const match = course.courseCode.match(/\d+/);
           const num = match ? match[0] : course.courseCode;
 
@@ -162,7 +136,7 @@ const TeacherAttendance = () => {
         setCourses(displayCourses);
         if (displayCourses.length > 0) setSelectedCourseIds(displayCourses[0].value); 
       } catch (err) {
-        console.error("❌ Dersler yüklenemedi:", err);
+        console.error("Dersler yüklenemedi:", err);
       } finally {
         setLoadingCourses(false);
       }
@@ -180,12 +154,10 @@ const TeacherAttendance = () => {
     setLiveNotifications([]); 
     setFacingMode("environment"); 
     setCameraError(null);
-    setZoomLevel(1);
     
     setIsContinuousScanning(false);
     scanningRef.current = false;
     processingRef.current = false;
-    frameCountRef.current = 0;
     clearTimeout(timeoutRef.current);
 
     setSelectedDateOnly(new Date().toISOString().slice(0, 10));
@@ -206,14 +178,10 @@ const TeacherAttendance = () => {
     setCameraError(null);
   };
 
-  // 🆕 KAMERA DEĞİŞTİR (ön/arka)
+  // KAMERA YÖNÜNÜ ÇEVİR
   const toggleCamera = () => {
-    const backCameras = availableCameras.filter(d => 
-      d.label.toLowerCase().includes('back')
-    );
-    const frontCameras = availableCameras.filter(d => 
-      d.label.toLowerCase().includes('front')
-    );
+    const backCameras = availableCameras.filter(d => d.label.toLowerCase().includes('back'));
+    const frontCameras = availableCameras.filter(d => d.label.toLowerCase().includes('front'));
 
     const currentIsBack = backCameras.some(d => d.deviceId === selectedDeviceId);
     
@@ -221,39 +189,9 @@ const TeacherAttendance = () => {
       setSelectedDeviceId(frontCameras[0].deviceId);
       setFacingMode("user");
     } else if (backCameras.length > 0) {
-      // Ana arka kamerayı bul
-      const mainBack = backCameras.find(d => {
-        const l = d.label.toLowerCase();
-        return !l.includes('wide') && !l.includes('tele');
-      }) || backCameras[0];
+      const mainBack = backCameras.find(d => !d.label.toLowerCase().includes('wide') && !d.label.toLowerCase().includes('tele')) || backCameras[0];
       setSelectedDeviceId(mainBack.deviceId);
       setFacingMode("environment");
-    }
-    setZoomLevel(1);
-  };
-
-  // 🆕 ZOOM UYGULA (S24 Ultra'nın optik zoom'unu kullan)
-  const applyZoom = async (level) => {
-    try {
-      const stream = webcamRef.current?.stream;
-      if (!stream) {
-        console.warn("⚠️ Stream henüz hazır değil");
-        return;
-      }
-      
-      const track = stream.getVideoTracks()[0];
-      const capabilities = track.getCapabilities();
-      
-      if (capabilities.zoom) {
-        const safeLevel = Math.min(Math.max(level, capabilities.zoom.min || 1), capabilities.zoom.max || 1);
-        await track.applyConstraints({ advanced: [{ zoom: safeLevel }] });
-        setZoomLevel(safeLevel);
-        console.log(`🔍 Zoom uygulandı: ${safeLevel}x (Max: ${capabilities.zoom.max})`);
-      } else {
-        console.warn("⚠️ Bu cihaz zoom desteklemiyor");
-      }
-    } catch (err) {
-      console.error("❌ Zoom hatası:", err);
     }
   };
 
@@ -279,13 +217,13 @@ const TeacherAttendance = () => {
       const response = await axiosInstance.post('/Attendance/start', payload);
       setCreatedSession(response.data);
     } catch (err) {
-      alert("HATA: " + (err.response?.data?.message || JSON.stringify(err.response?.data) || "Yoklama başlatılamadı."));
+      alert("HATA: " + (err.response?.data?.message || "Yoklama başlatılamadı."));
     } finally {
       setSubmitting(false);
     }
   };
 
-  // ✅ HD TARAMA FONKSİYONU
+  // HD TARAMA (Yön, Çözünürlük ve Lag Sorunları Giderildi)
   const processNextFrame = async () => {
     if (!scanningRef.current || !webcamRef.current || !createdSession) return;
     
@@ -299,17 +237,31 @@ const TeacherAttendance = () => {
       const video = webcamRef.current.video;
       
       if (video && video.readyState === 4 && video.videoWidth > 0) {
-        frameCountRef.current++;
-        console.log(`📸 Frame ${frameCountRef.current}: ${video.videoWidth}x${video.videoHeight} - Zoom: ${zoomLevel}x`);
+        // S24 Ultra 4K atarsa sistemi dondurmasın diye maksimum boyutu 1920 ile sınırla
+        // Oranları koruduğumuz için görüntü asla yamulmaz veya esnemez.
+        let drawW = video.videoWidth;
+        let drawH = video.videoHeight;
+        const MAX_DIM = 1920;
+
+        if (Math.max(drawW, drawH) > MAX_DIM) {
+          const ratio = drawW / drawH;
+          if (drawW > drawH) {
+            drawW = MAX_DIM;
+            drawH = Math.round(MAX_DIM / ratio);
+          } else {
+            drawH = MAX_DIM;
+            drawW = Math.round(MAX_DIM * ratio);
+          }
+        }
 
         const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.width = drawW;
+        canvas.height = drawH;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, 0, 0, drawW, drawH);
 
         const frameBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
-        const frameFile = new File([frameBlob], `hd_frame_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        const frameFile = new File([frameBlob], `frame_${Date.now()}.jpg`, { type: 'image/jpeg' });
 
         const formData = new FormData();
         formData.append('sessionId', createdSession.sessionId); 
@@ -319,14 +271,10 @@ const TeacherAttendance = () => {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
 
-        console.log("🟢 API YANITI:", response.data);
-
         let foundStudents = [];
-        
         if (Array.isArray(response.data)) {
             foundStudents = response.data;
-        } 
-        else if (response.data && typeof response.data === 'object') {
+        } else if (response.data && typeof response.data === 'object') {
             if (Array.isArray(response.data.data)) foundStudents = response.data.data;
             else if (Array.isArray(response.data.recognizedIds)) foundStudents = response.data.recognizedIds;
             else if (Array.isArray(response.data.names)) foundStudents = response.data.names;
@@ -340,8 +288,6 @@ const TeacherAttendance = () => {
           const freshNames = foundStudents.map(String).filter(name => !activeRecognizedNames.current.includes(name));
 
           if (freshNames.length > 0) {
-            console.log(`🎉 YENİ KİŞİ(LER): ${freshNames.join(", ")}`);
-            
             setRecognizedNames(prev => [...new Set([...prev, ...freshNames])]);
             activeRecognizedNames.current.push(...freshNames);
 
@@ -361,7 +307,7 @@ const TeacherAttendance = () => {
         }
       }
     } catch (error) {
-      console.error("❌ Tarama Hatası:", error);
+      console.error("Tarama Hatası:", error);
     } finally {
       processingRef.current = false; 
       if (scanningRef.current) {
@@ -370,65 +316,21 @@ const TeacherAttendance = () => {
     }
   };
 
-  // 🆕 KAMERA HAZIR OLDUĞUNDA - zoom yeteneklerini öğren
-  const handleCameraReady = (stream) => {
+  const handleCameraReady = () => {
     if (!scanningRef.current && createdSession) {
-      console.log("📹 Kamera hazır, tarama başlıyor...");
-      
-      // Zoom yeteneklerini öğren
-      try {
-        const track = stream.getVideoTracks()[0];
-        const capabilities = track.getCapabilities();
-        const settings = track.getSettings();
-        
-        console.log("📊 Kamera Yetenekleri:", capabilities);
-        console.log("📊 Aktif Ayarlar:", settings);
-        
-        if (capabilities.zoom) {
-          setZoomSupported(true);
-          setMaxZoom(capabilities.zoom.max || 1);
-          console.log(`✅ Zoom destekleniyor! Min: ${capabilities.zoom.min}, Max: ${capabilities.zoom.max}`);
-          
-          // 🚀 OTOMATIK 2x ZOOM (S24 Ultra için ideal başlangıç)
-          if (capabilities.zoom.max >= 2) {
-            setTimeout(() => applyZoom(2), 500);
-          }
-        } else {
-          setZoomSupported(false);
-          console.warn("⚠️ Bu kamera digital zoom desteklemiyor");
-        }
-      } catch (e) {
-        console.error("Zoom yetenek kontrolü hatası:", e);
-      }
-      
       scanningRef.current = true;
       processingRef.current = false;
-      frameCountRef.current = 0;
       setIsContinuousScanning(true);
       clearTimeout(timeoutRef.current); 
       processNextFrame(); 
     }
   };
 
-  // 🆕 KAMERA HATA YAKALAMA
   const handleCameraError = (error) => {
-    console.error("❌ KAMERA HATASI:", error);
+    console.error("KAMERA HATASI:", error);
     const errName = error.name || 'Unknown';
     const errMsg = error.message || error.toString();
     setCameraError(`${errName}: ${errMsg}`);
-    
-    // Spesifik hata mesajları
-    if (errName === 'NotAllowedError') {
-      alert("Kamera izni reddedildi. Tarayıcı ayarlarından izin verin.");
-    } else if (errName === 'NotFoundError') {
-      alert("Kamera bulunamadı.");
-    } else if (errName === 'NotReadableError') {
-      alert("Kamera başka bir uygulamada açık. Diğer uygulamaları kapatın.");
-    } else if (errName === 'OverconstrainedError') {
-      alert("Kamera çözünürlük ayarlarını desteklemiyor. Yenileyip tekrar deneyin.");
-    } else {
-      alert(`Kamera hatası: ${errName}\n${errMsg}`);
-    }
   };
 
   return (
@@ -497,10 +399,6 @@ const TeacherAttendance = () => {
                         </button>
                       </div>
 
-                      <p style={{ color: '#555', marginBottom: '15px', fontSize: '13px', textAlign: 'left' }}>
-                        📱 <b>İPUCU:</b> Telefonu <b>yatay tutun</b> ve sınıfı 2x-3x zoom ile çekin. En iyi sonuç için yüzler büyük görünmeli.
-                      </p>
-
                       {cameraError && (
                         <div style={{ background: '#fee', color: '#c00', padding: '10px', borderRadius: '6px', marginBottom: '10px', fontSize: '12px' }}>
                           ⚠️ {cameraError}
@@ -511,7 +409,7 @@ const TeacherAttendance = () => {
                         
                         {isContinuousScanning && (
                           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', background: 'rgba(16, 185, 129, 0.8)', color: 'white', padding: '4px 0', fontSize: '12px', fontWeight: 'bold', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}>
-                            <FaSpinner className="fa-spin" /> Otomatik Tarama Aktif • Zoom: {zoomLevel}x
+                            <FaSpinner className="fa-spin" /> Otomatik Tarama Aktif
                           </div>
                         )}
 
@@ -527,7 +425,7 @@ const TeacherAttendance = () => {
                           ))}
                         </div>
 
-                        {/* 🆕 OPTİMİZE EDİLMİŞ WEBCAM (S24 Ultra için) */}
+                        {/* ASPECT RATIO ZORLAMASI KALDIRILDI - TARAYICI DOĞAL YÖNÜ BULACAK */}
                         <Webcam
                           audio={false}
                           ref={webcamRef}
@@ -537,16 +435,13 @@ const TeacherAttendance = () => {
                             selectedDeviceId 
                               ? {
                                   deviceId: { exact: selectedDeviceId },
-                                  width: { ideal: 1920, max: 1920 },
-                                  height: { ideal: 1080, max: 1080 },
-                                  // S24 Ultra için: yatay yön zorla
-                                  aspectRatio: { ideal: 16/9 }
+                                  width: { ideal: 1920 },
+                                  height: { ideal: 1920 }
                                 }
                               : { 
                                   facingMode: { ideal: facingMode },
-                                  width: { ideal: 1920, max: 1920 },
-                                  height: { ideal: 1080, max: 1080 },
-                                  aspectRatio: { ideal: 16/9 }
+                                  width: { ideal: 1920 },
+                                  height: { ideal: 1920 }
                                 }
                           } 
                           onUserMedia={handleCameraReady} 
@@ -555,41 +450,6 @@ const TeacherAttendance = () => {
                         />
                       </div>
 
-                      {/* 🆕 ZOOM KONTROLÜ */}
-                      {zoomSupported && (
-                        <div style={{ background: '#1f2937', padding: '12px', borderRadius: '8px', marginBottom: '15px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                            <span style={{ color: 'white', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <FaSearchPlus /> Zoom Seviyesi: <b>{zoomLevel}x</b>
-                            </span>
-                            <span style={{ color: '#9ca3af', fontSize: '11px' }}>Max: {maxZoom}x</span>
-                          </div>
-                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            {[1, 2, 3, 5, 10].filter(z => z <= maxZoom).map(z => (
-                              <button
-                                key={z}
-                                onClick={() => applyZoom(z)}
-                                style={{
-                                  flex: 1,
-                                  padding: '8px',
-                                  background: zoomLevel === z ? '#10b981' : '#374151',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '6px',
-                                  cursor: 'pointer',
-                                  fontWeight: 'bold',
-                                  fontSize: '13px',
-                                  transition: 'all 0.2s'
-                                }}
-                              >
-                                {z}x
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 🆕 KAMERA SEÇİCİ (Birden fazla varsa) */}
                       {availableCameras.length > 1 && (
                         <div style={{ marginBottom: '15px' }}>
                           <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: '#666', fontWeight: 'bold' }}>
@@ -597,10 +457,7 @@ const TeacherAttendance = () => {
                           </label>
                           <select
                             value={selectedDeviceId || ''}
-                            onChange={(e) => {
-                              setSelectedDeviceId(e.target.value);
-                              setZoomLevel(1);
-                            }}
+                            onChange={(e) => setSelectedDeviceId(e.target.value)}
                             style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '12px' }}
                           >
                             {availableCameras.map(cam => (
