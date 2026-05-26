@@ -36,6 +36,7 @@ const TeacherAttendance = () => {
   const [qrContent, setQrContent] = useState("");
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(12); // 🆕 QR Kod Sayacı
 
   // FACE RECOGNITION
   const webcamRef = useRef(null);
@@ -55,12 +56,12 @@ const TeacherAttendance = () => {
   const timeoutRef = useRef(null);
   const processingRef = useRef(false);
 
-  const getDotNetTicks = () => {
-    const now = new Date();
-    const expiryDate = new Date(now.getTime() + 3600000);
-    return (expiryDate.getTime() * 10000) + 621355968000000000;
-  };
 
+const getDotNetTicks = () => {
+    // 1 saat ekleme mantığı KALDIRILDI! Tam şu anki anı (UTC) gönderiyoruz.
+    const now = new Date();
+    return (now.getTime() * 10000) + 621355968000000000;
+  };
   // KAMERALARI LİSTELE VE ANA KAMERAYI BUL
   useEffect(() => {
     if (showModal && attendanceType === 'FaceRecognition') {
@@ -73,7 +74,6 @@ const TeacherAttendance = () => {
           const videoDevices = allDevices.filter(d => d.kind === 'videoinput');
           setAvailableCameras(videoDevices);
           
-          // S24 Ultra için bozuk geniş açıları filtrele, direkt ana kamerayı al
           let mainCamera = videoDevices.find(d => {
             const label = d.label.toLowerCase();
             return label.includes('back') && 
@@ -94,15 +94,27 @@ const TeacherAttendance = () => {
     }
   }, [showModal, attendanceType]);
 
-  // QR Kodu Güncelle
+  // QR KODU VE SAYACI GÜNCELLE
   useEffect(() => {
     let intervalId;
     if (createdSession && createdSession.sessionCode && attendanceType === 'QRCode') {
+      
       const updateQR = () => {
         setQrContent(`${createdSession.sessionCode}||${getDotNetTicks()}`);
+        setTimeLeft(12);
       };
+
       updateQR(); 
-      intervalId = setInterval(updateQR, 12000); 
+
+      intervalId = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            updateQR();
+            return 12;
+          }
+          return prev - 1;
+        });
+      }, 1000); 
     }
     return () => { if (intervalId) clearInterval(intervalId); };
   }, [createdSession, attendanceType]);
@@ -154,6 +166,7 @@ const TeacherAttendance = () => {
     setLiveNotifications([]); 
     setFacingMode("environment"); 
     setCameraError(null);
+    setTimeLeft(12);
     
     setIsContinuousScanning(false);
     scanningRef.current = false;
@@ -223,7 +236,7 @@ const TeacherAttendance = () => {
     }
   };
 
-  // HD TARAMA (Yön, Çözünürlük ve Lag Sorunları Giderildi)
+  // HD TARAMA
   const processNextFrame = async () => {
     if (!scanningRef.current || !webcamRef.current || !createdSession) return;
     
@@ -237,8 +250,6 @@ const TeacherAttendance = () => {
       const video = webcamRef.current.video;
       
       if (video && video.readyState === 4 && video.videoWidth > 0) {
-        // S24 Ultra 4K atarsa sistemi dondurmasın diye maksimum boyutu 1920 ile sınırla
-        // Oranları koruduğumuz için görüntü asla yamulmaz veya esnemez.
         let drawW = video.videoWidth;
         let drawH = video.videoHeight;
         const MAX_DIM = 1920;
@@ -373,7 +384,15 @@ const TeacherAttendance = () => {
                 {attendanceType === 'QRCode' && (
                   <>
                     <h2 style={{ color: '#2e7d32', marginBottom: '10px' }}>Yoklama Başlatıldı!</h2>
-                    <p style={{ fontSize:'12px', color: '#e65100', fontWeight:'bold' }}>QR Kod her 12 saniyede bir yenileniyor...</p>
+                    
+                    {/* 🆕 SAYAÇ ÇUBUĞU */}
+                    <div style={{ width: '220px', height: '8px', background: '#e0e0e0', borderRadius: '4px', margin: '0 auto 10px auto', overflow: 'hidden' }}>
+                      <div style={{ width: `${(timeLeft / 12) * 100}%`, height: '100%', background: '#ff9800', transition: 'width 1s linear' }}></div>
+                    </div>
+                    
+                    <p style={{ fontSize:'14px', color: '#e65100', fontWeight:'bold', marginBottom: '15px' }}>
+                      QR Kod yenileniyor: {timeLeft}s
+                    </p>
                     
                     <div style={{ background: 'white', padding: '15px', display: 'inline-block', border: '1px solid #ddd', borderRadius: '8px', marginBottom: '15px' }}>
                       {qrContent ? <QRCode value={qrContent} size={220} /> : <p>QR Oluşturuluyor...</p>}
@@ -425,7 +444,6 @@ const TeacherAttendance = () => {
                           ))}
                         </div>
 
-                        {/* ASPECT RATIO ZORLAMASI KALDIRILDI - TARAYICI DOĞAL YÖNÜ BULACAK */}
                         <Webcam
                           audio={false}
                           ref={webcamRef}
