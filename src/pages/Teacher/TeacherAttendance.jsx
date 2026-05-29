@@ -57,11 +57,13 @@ const TeacherAttendance = () => {
   const processingRef = useRef(false);
 
 
-const getDotNetTicks = () => {
-    // 1 saat ekleme mantığı KALDIRILDI! Tam şu anki anı (UTC) gönderiyoruz.
-    const now = new Date();
-    return (now.getTime() * 10000) + 621355968000000000;
+  // ⭐ DÜZELTME: Ticks çarpımı JS'in güvenli tamsayı sınırını (2^53) aştığı için
+  // hassasiyet kaybı oluyordu. Bunun yerine doğrudan UTC epoch milisaniye gönderiyoruz.
+  // Date.now() zaten UTC döndürür, overflow yoktur.
+  const getQrTimestamp = () => {
+    return Date.now(); // UTC epoch milisaniye
   };
+
   // KAMERALARI LİSTELE VE ANA KAMERAYI BUL
   useEffect(() => {
     if (showModal && attendanceType === 'FaceRecognition') {
@@ -100,7 +102,7 @@ const getDotNetTicks = () => {
     if (createdSession && createdSession.sessionCode && attendanceType === 'QRCode') {
       
       const updateQR = () => {
-        setQrContent(`${createdSession.sessionCode}||${getDotNetTicks()}`);
+        setQrContent(`${createdSession.sessionCode}||${getQrTimestamp()}`);
         setTimeLeft(12);
       };
 
