@@ -103,6 +103,7 @@ const TeacherAttendance = () => {
       
       const updateQR = () => {
         setQrContent(`${createdSession.sessionCode}||${getQrTimestamp()}`);
+        console.log("[QR DEBUG] Gönderilen timestamp:", getQrTimestamp(), "Hane sayısı:", getQrTimestamp().toString().length);
         setTimeLeft(12);
       };
 
