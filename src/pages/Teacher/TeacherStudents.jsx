@@ -1,20 +1,72 @@
-import React, { useState } from 'react';
-import { FaSignOutAlt, FaChevronRight,FaChevronDown } from 'react-icons/fa';
+import React, { useState, useEffect } from 'react';
+import { FaSignOutAlt, FaChevronRight, FaChevronDown, FaSpinner } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
-import './TeacherStudents.css'; // Birazdan oluşturacağız
+import './TeacherStudents.css'; 
 import { useNavigate } from 'react-router-dom';
+import axiosInstance from '../../api/axiosInstance'; // Kendi API dosyan
+
 const TeacherStudents = () => {
   const navigate = useNavigate();
-  // Seçili dersi tutmak için state
-  const [selectedCourse, setSelectedCourse] = useState('BLGM353');
+  
+  // STATELER
+  const [courses, setCourses] = useState([]);
+  const [selectedCourse, setSelectedCourse] = useState('');
+  const [students, setStudents] = useState([]);
+  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [loadingStudents, setLoadingStudents] = useState(false);
 
-  // Sahte Öğrenci Verileri (Normalde veritabanından gelir)
-  const students = [
-    { id: 1, name: 'HALİL İBRAHİM FİLOĞLU', number: '23002744', email: 'halil.filoglu@emu.edu.tr', initials: 'HF' },
-    { id: 2, name: 'AHMET YILMAZ', number: '23002745', email: 'ahmet.yilmaz@emu.edu.tr', initials: 'AY' },
-    { id: 3, name: 'AYŞE DEMİR', number: '23002746', email: 'ayse.demir@emu.edu.tr', initials: 'AD' },
-    { id: 4, name: 'MEHMET KAYA', number: '23002747', email: 'mehmet.kaya@emu.edu.tr', initials: 'MK' },
-  ];
+  // 1. ADIM: Sayfa Yüklendiğinde Hocanın Derslerini Çek
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        // TeacherAttendance sayfasında da kullandığımız ders getirme endpointi
+        const response = await axiosInstance.get('/Attendance/my-courses');
+        setCourses(response.data);
+        
+        // Eğer hocanın dersi varsa, ilk dersi varsayılan olarak seç
+        if (response.data.length > 0) {
+          setSelectedCourse(response.data[0].id.toString());
+        }
+      } catch (error) {
+        console.error("Dersler yüklenirken hata oluştu:", error);
+      } finally {
+        setLoadingCourses(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
+
+  // 2. ADIM: Seçili Ders Değiştiğinde O Dersin Öğrencilerini Çek
+  useEffect(() => {
+    if (!selectedCourse) return;
+
+    const fetchStudents = async () => {
+      setLoadingStudents(true);
+      try {
+        // Backend'deki GetStudentsByCourseIdAsync metoduna denk gelen endpoint.
+        // DİKKAT: Controller'ındaki route farklıysa burayı ona göre güncelle!
+        // DÜZELTİLMİŞ SATIR BURASI
+const response = await axiosInstance.get(`/Attendance/instructor-course-students/${selectedCourse}`);
+        setStudents(response.data);
+      } catch (error) {
+        console.error("Öğrenciler yüklenirken hata:", error);
+        setStudents([]);
+      } finally {
+        setLoadingStudents(false);
+      }
+    };
+
+    fetchStudents();
+  }, [selectedCourse]);
+
+  // Yardımcı Fonksiyon: İsimden Baş Harfleri Bulma (Örn: HALİL İBRAHİM FİLOĞLU -> HF)
+  const getInitials = (fullName) => {
+    if (!fullName) return '??';
+    const nameArray = fullName.trim().split(' ');
+    if (nameArray.length === 1) return nameArray[0].charAt(0).toUpperCase();
+    return (nameArray[0].charAt(0) + nameArray[nameArray.length - 1].charAt(0)).toUpperCase();
+  };
 
   return (
     <DashboardLayout role="teacher">
@@ -31,23 +83,31 @@ const TeacherStudents = () => {
       <h2 className="page-sub-title">Öğrencilerim</h2>
 
       {/* Ders Seçim Kartı */}
-  <div className="filter-card">
-        {/* Label sildik çünkü floating label kullanıyoruz */}
-        
+      <div className="filter-card">
         <div className="select-wrapper">
-            <span className="small-label">Ders</span>
+            <span className="small-label">Ders Seçimi</span>
             
-            <select 
-                className="course-select"
-                value={selectedCourse}
-                onChange={(e) => setSelectedCourse(e.target.value)}
-            >
-                <option value="BLGM353">BLGM353 - Database Management Systems</option>
-                <option value="BLGM371">BLGM371 - Algoritmaların Çözümlenmesi</option>
-            </select>
-
-            {/* YENİ EKLENEN OK İKONU */}
-            <FaChevronDown className="select-arrow" />
+            {loadingCourses ? (
+                <div style={{ padding: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <FaSpinner className="fa-spin" /> Dersler yükleniyor...
+                </div>
+            ) : (
+                <>
+                    <select 
+                        className="course-select"
+                        value={selectedCourse}
+                        onChange={(e) => setSelectedCourse(e.target.value)}
+                    >
+                        {courses.length === 0 && <option value="">Ders bulunamadı</option>}
+                        {courses.map(course => (
+                            <option key={course.id} value={course.id}>
+                                {course.courseCode} - {course.courseName}
+                            </option>
+                        ))}
+                    </select>
+                    <FaChevronDown className="select-arrow" />
+                </>
+            )}
         </div>
       </div>
 
@@ -55,31 +115,47 @@ const TeacherStudents = () => {
       <div className="student-list-card">
         <div className="card-header">
             <h3>Öğrenci Listesi</h3>
+            {!loadingStudents && students.length > 0 && (
+                <span style={{ fontSize: '12px', background: '#e2e8f0', padding: '4px 10px', borderRadius: '12px' }}>
+                    Toplam: {students.length} Öğrenci
+                </span>
+            )}
         </div>
         
         <div className="student-list">
-          {students.map((student) => (
-            <div key={student.id} className="student-item">
-              
-              {/* Sol Taraf: Avatar ve Bilgiler */}
-              <div className="student-info-group">
-                <div className="student-avatar">
-                  {student.initials}
+          {loadingStudents ? (
+             <div style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>
+                 <FaSpinner className="fa-spin" size={24} style={{ marginBottom: '10px' }} />
+                 <p>Öğrenciler getiriliyor...</p>
+             </div>
+          ) : students.length === 0 ? (
+             <div style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>
+                 <p>Bu derse kayıtlı öğrenci bulunmamaktadır.</p>
+             </div>
+          ) : (
+            students.map((student) => (
+              <div key={student.id} className="student-item">
+                
+                {/* Sol Taraf: Avatar ve Bilgiler */}
+                <div className="student-info-group">
+                  <div className="student-avatar" style={{ background: '#3b82f6', color: 'white' }}>
+                    {getInitials(student.fullName)}
+                  </div>
+                  <div className="student-details">
+                    <span className="student-name">{student.fullName}</span>
+                    <span className="student-subtext">Öğrenci No: {student.schoolNumber || '-'}</span>
+                    <span className="student-subtext">{student.email}</span>
+                  </div>
                 </div>
-                <div className="student-details">
-                  <span className="student-name">{student.name}</span>
-                  <span className="student-subtext">Öğrenci No: {student.number}</span>
-                  <span className="student-subtext">{student.email}</span>
+
+                {/* Sağ Taraf: Ok İkonu */}
+                <div className="student-action" style={{ cursor: 'pointer' }}>
+                  <FaChevronRight color="#cbd5e1" />
                 </div>
-              </div>
 
-              {/* Sağ Taraf: Ok İkonu */}
-              <div className="student-action">
-                <FaChevronRight />
               </div>
-
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 

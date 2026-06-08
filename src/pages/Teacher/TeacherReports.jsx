@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FaSignOutAlt, FaList, FaStopCircle, FaInfoCircle, FaCalendarAlt, FaClock, FaCalendarDay, FaSpinner, FaHistory, FaBroadcastTower } from 'react-icons/fa';
+import { FaSignOutAlt, FaList, FaStopCircle, FaInfoCircle, FaCalendarAlt, FaClock, FaCalendarDay, FaSpinner, FaHistory, FaBroadcastTower, FaTrash } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './TeacherReports.css';
 import { useNavigate } from 'react-router-dom';
 // 🔥 DEĞİŞİKLİK
 import axiosInstance from '../../api/axiosInstance';
 import * as signalR from '@microsoft/signalr';
+
 
 const TeacherReports = () => {
   const navigate = useNavigate();
@@ -87,7 +88,22 @@ const TeacherReports = () => {
       alert("❌ İşlem başarısız: " + (error.response?.data?.message || error.message));
     }
   };
+const handleDeleteSession = async (sessionId) => {
+    const isConfirmed = window.confirm("⚠️ DİKKAT: Bu yoklamayı tamamen silmek istediğinize emin misiniz? Öğrencilerin bu derse ait devamsızlık istatistikleri sıfırlanacaktır. Bu işlem geri alınamaz!");
+    if (!isConfirmed) return;
 
+    try {
+      // Backend'e silme isteğini gönderiyoruz
+      await axiosInstance.delete(`/Attendance/instructor/session/${sessionId}`);
+      
+      // Başarılı olursa o raporu ekrandan anında (state'ten) siliyoruz
+      setReports(prevReports => prevReports.filter(report => report.sessionId !== sessionId));
+      
+      alert("✅ Yoklama başarıyla silindi!");
+    } catch (error) {
+      alert("❌ HATA: Yoklama silinemedi. " + (error.response?.data?.message || error.message));
+    }
+  };
   useEffect(() => {
     const token = localStorage.getItem('jwtToken');
     if (!token) return;
@@ -293,6 +309,15 @@ const TeacherReports = () => {
                       onClick={() => toggleExpand(report.sessionId)}
                     >
                       <FaList /> {expandedReportId === report.sessionId ? 'Gizle' : 'Liste'}
+                    </button>
+
+                    {/* 🔥 YENİ EKLENEN SİL BUTONU (EN SAĞDA) 🔥 */}
+                    <button 
+                      className="btn-delete" 
+                      onClick={() => handleDeleteSession(report.sessionId)}
+                      title="Yoklamayı Sil"
+                    >
+                      <FaTrash /> Sil
                     </button>
                   </div>
                 </div>

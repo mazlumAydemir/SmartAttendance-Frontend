@@ -110,34 +110,46 @@ const StudentActiveAttendance = () => {
     return () => { isMounted = false; };
   }, [fetchAllActiveSessions]);
 
-  useEffect(() => {
+useEffect(() => {
     const token = localStorage.getItem('jwtToken');
     if (!token) return;
 
-    // 🔥 DEĞİŞİKLİK: SignalR URL'i env'den dinamik alınır
     const baseUrl = import.meta.env.VITE_API_BASE_URL.replace(/\/api\/?$/, '');
+    
+    // 1. BAĞLANTIYI İNŞA ET (Loglama ekledik ki konsolda görebilesin)
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(`${baseUrl}/attendanceHub`, {
         accessTokenFactory: () => token
       })
       .withAutomaticReconnect()
+      .configureLogging(signalR.LogLevel.Information) // Hata ayıklamak için log eklendi
       .build();
 
+    // 🔥 2. ÖNCE DİNLEYİCİLERİ KAYDET (Bağlantıdan önce olmalı!)
+    connection.on("SessionStarted", () => {
+      console.log("[SignalR] 🚀 Hoca yoklamayı başlattı! Liste yenileniyor...");
+      // Backend'in veritabanına yazmasıyla senin çekmen çakışmasın diye küçük bir gecikme iyidir
+      setTimeout(() => { fetchAllActiveSessions(); }, 500); 
+    });
+
+    connection.on("SessionEndedGlobal", (sessionId) => {
+      console.log("[SignalR] 🛑 Yoklama kapatıldı! Oturum ID:", sessionId);
+      setActiveSessions(prev => prev.filter(s => s.sessionId !== sessionId));
+    });
+
+    // 🚀 3. SONRA BAĞLANTIYI BAŞLAT
     connection.start()
-      .then(() => {
-        connection.on("SessionStarted", () => {
-          setTimeout(() => { fetchAllActiveSessions(); }, 500); 
-        });
+      .then(() => console.log("[SignalR] ✅ WebSocket bağlantısı başarıyla kuruldu! Dinlemedeyiz..."))
+      .catch(err => console.error("[SignalR] ❌ Bağlantı Hatası:", err));
 
-        connection.on("SessionEndedGlobal", (sessionId) => {
-          setActiveSessions(prev => prev.filter(s => s.sessionId !== sessionId));
-        });
-      })
-      .catch(err => console.error("[SignalR] Bağlantı Hatası:", err));
-
-    return () => { connection.stop(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+    // 🧹 4. CLEANUP: Component kapandığında dinleyicileri ve soketi temizle
+    return () => {
+      connection.off("SessionStarted");
+      connection.off("SessionEndedGlobal");
+      connection.stop()
+        .then(() => console.log("[SignalR] Bağlantı kapatıldı."));
+    };
+  }, [fetchAllActiveSessions]); // fetchAllActiveSessions dependency olarak eklendi
 
   const scanQR = useCallback(() => {
     if (webcamRef.current && webcamRef.current.video.readyState === 4) {

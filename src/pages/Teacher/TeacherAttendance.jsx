@@ -401,10 +401,7 @@ const TeacherAttendance = () => {
                       {qrContent ? <QRCode value={qrContent} size={220} /> : <p>QR Oluşturuluyor...</p>}
                     </div>
 
-                    <div style={{ background: '#f5f5f5', padding: '10px', borderRadius: '6px', margin: '0 auto 20px auto', maxWidth: '300px' }}>
-                      <span style={{ display: 'block', fontSize: '12px', color: '#888' }}>Oturum Kodu</span>
-                      <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#333', letterSpacing: '2px' }}>{createdSession.sessionCode}</span>
-                    </div>
+                  
                   </>
                 )}
 
@@ -524,10 +521,7 @@ const TeacherAttendance = () => {
                     <FaCheckCircle style={{ fontSize: '60px', color: '#4caf50', marginBottom: '20px' }} />
                     <h2 style={{ color: '#2e7d32', marginBottom: '10px' }}>Konum Yoklaması Aktif!</h2>
                     <p style={{ color: '#555', marginBottom: '20px', fontSize: '16px' }}>Öğrenciler giriş yapabilirler.</p>
-                    <div style={{ background: '#e8f5e9', padding: '15px', borderRadius: '8px', display: 'inline-block' }}>
-                      <span style={{ fontWeight: 'bold', color: '#2e7d32' }}>Oturum Kodu: </span>
-                      <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{createdSession.sessionCode}</span>
-                    </div>
+                  
                   </div>
                 )}
 

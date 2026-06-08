@@ -1,55 +1,69 @@
-import React from 'react';
-import { FaSignOutAlt, FaGraduationCap } from 'react-icons/fa';
+import React, { useState, useEffect } from 'react';
+import { FaSignOutAlt, FaGraduationCap, FaSpinner } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './StudentAttendance.css';
 import { useNavigate } from 'react-router-dom';
+import axiosInstance from '../../api/axiosInstance';
+
 const StudentAttendance = () => {
-    const navigate = useNavigate();
-  // Görseldeki Veriler
-  const attendanceData = [
-    {
-      id: 1,
-      title: "Database Management Systems",
-      details: "BLGM353 PROFESSOR DR. EKREM VAROĞLU",
-      attended: 0,
-      total: 0
-    },
-    {
-      id: 2,
-      title: "Algoritmaların Çözümlenmesi",
-      details: "BLGM371 ASST. PROF.DR. AHMET ÜNVEREN",
-      attended: 10,
-      total: 16
-    },
-    {
-      id: 3,
-      title: "Mezuniyet Projesi - I",
-      details: "BLGM405 ASST. PROF.DR. AHMET ÜNVEREN",
-      attended: 0,
-      total: 0
-    },
-    {
-      id: 4,
-      title: "Mobile Application Development",
-      details: "BLGM419 TBA TBA",
-      attended: 0,
-      total: 0
-    },
-    {
-      id: 5,
-      title: "Data Science",
-      details: "BLGM428 PROF. DR. MEHMET YILMAZ",
-      attended: 6,
-      total: 7
-    },
-    {
-      id: 6,
-      title: "İktisada Giriş - I",
-      details: "EKON111 ASST. PROF.DR. FATMA DEMİR",
-      attended: 7,
-      total: 15
-    }
-  ];
+  const navigate = useNavigate();
+  
+  // State'ler
+  const [attendanceData, setAttendanceData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAttendanceData = async () => {
+      try {
+        setLoading(true);
+        
+        // 1. ADIM: Öğrencinin aldığı tüm dersleri çek
+        const coursesResponse = await axiosInstance.get('/Attendance/student/my-courses');
+        const courses = coursesResponse.data;
+
+        // 2. ADIM: Her ders için eşzamanlı olarak (paralel) yoklama geçmişini çek
+        const statsPromises = courses.map(async (course) => {
+          try {
+            const historyResponse = await axiosInstance.get(`/Attendance/student/history/${course.id}`);
+            const history = historyResponse.data;
+
+            // Toplam yapılan oturum sayısı ve "Present" (Var) olarak işaretlenen oturumları hesapla
+            const totalSessions = history.length;
+            const attendedSessions = history.filter(record => record.status === 'Present').length;
+
+            return {
+              id: course.id,
+              title: course.courseName,
+              details: `${course.courseCode} - ${course.instructorName}`,
+              attended: attendedSessions,
+              total: totalSessions
+            };
+          } catch (error) {
+            console.error(`${course.courseCode} için geçmiş alınamadı:`, error);
+            // Hata olursa en azından dersi sıfır veriyle gösterelim
+            return {
+              id: course.id,
+              title: course.courseName,
+              details: `${course.courseCode} - ${course.instructorName}`,
+              attended: 0,
+              total: 0
+            };
+          }
+        });
+
+        // Tüm derslerin geçmişinin yüklenmesini bekle
+        const coursesWithStats = await Promise.all(statsPromises);
+        setAttendanceData(coursesWithStats);
+
+      } catch (err) {
+        console.error("Dersler yüklenirken ana hata oluştu:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAttendanceData();
+  }, []);
 
   return (
     <DashboardLayout role="student">
@@ -74,23 +88,39 @@ const StudentAttendance = () => {
 
           {/* Liste */}
           <div className="attendance-list">
-            {attendanceData.map((item) => (
-              <div key={item.id} className="attendance-row">
-                
-                {/* Sol Taraf: Ders Bilgisi */}
-                <div className="course-info">
-                  <h3 className="course-name">{item.title}</h3>
-                  <span className="course-meta">{item.details}</span>
-                </div>
-
-                {/* Sağ Taraf: Yoklama Kutusu */}
-                <div className="attendance-badge">
-                  <span className="badge-count">{item.attended} / {item.total}</span>
-                  <span className="badge-label">Yoklama</span>
-                </div>
-
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                <FaSpinner className="fa-spin" size={30} style={{ marginBottom: '15px', color: '#3b82f6' }} />
+                <p>Yoklama verileriniz hesaplanıyor, lütfen bekleyin...</p>
               </div>
-            ))}
+            ) : attendanceData.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                <p>Kayıtlı olduğunuz bir ders bulunamadı.</p>
+              </div>
+            ) : (
+              attendanceData.map((item) => (
+                <div key={item.id} className="attendance-row">
+                  
+                  {/* Sol Taraf: Ders Bilgisi */}
+                  <div className="course-info">
+                    <h3 className="course-name">{item.title}</h3>
+                    <span className="course-meta">{item.details}</span>
+                  </div>
+
+                  {/* Sağ Taraf: Yoklama Kutusu */}
+                  <div className="attendance-badge">
+                    <span className="badge-count" style={{ 
+                      // Devamsızlık %30'dan fazlaysa (örnek: katılım < %70) rengi kırmızı yapabilirsin
+                      color: (item.total > 0 && (item.attended / item.total) < 0.7) ? '#ef4444' : '#10b981'
+                    }}>
+                      {item.attended} / {item.total}
+                    </span>
+                    <span className="badge-label">Katılım</span>
+                  </div>
+
+                </div>
+              ))
+            )}
           </div>
 
         </div>
