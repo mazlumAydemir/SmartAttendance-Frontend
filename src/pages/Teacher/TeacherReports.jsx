@@ -19,10 +19,13 @@ const TeacherReports = () => {
 
   // ==========================================================
   // TÜM RAPORLARI GETİR
+  //   isBackground = true  -> SignalR canlı güncellemesi (spinner GÖSTERME)
+  //   isBackground = false -> ilk yükleme (spinner göster)
   // ==========================================================
-  const fetchAllData = useCallback(async () => {
+  const fetchAllData = useCallback(async (isBackground = false) => {
     try {
-      setLoading(true);
+      // Sadece ilk yüklemede spinner göster; canlı güncellemede dokunma
+      if (!isBackground) setLoading(true);
 
       const [activeRes, historyRes] = await Promise.all([
         axiosInstance.get('/Attendance/my-active-sessions'),
@@ -60,7 +63,8 @@ const TeacherReports = () => {
     } catch (error) {
       console.error("Veriler çekilemedi:", error);
     } finally {
-      setLoading(false);
+      // Spinner'ı yalnızca ilk yüklemede kapat
+      if (!isBackground) setLoading(false);
     }
   }, []);
 
@@ -126,8 +130,9 @@ const TeacherReports = () => {
         });
 
         connection.on("SessionStarted", () => {
-          console.log("[SignalR] Yeni oturum açıldı, liste güncelleniyor...");
-          fetchAllData(); 
+          console.log("[SignalR] Yeni oturum açıldı, liste arka planda güncelleniyor...");
+          // 🔥 true => arka plan güncellemesi: "Veriler yükleniyor..." spinner'ı ÇIKMAZ
+          fetchAllData(true); 
         });
       })
       .catch(err => console.error("[SignalR] Hoca Bağlantı Hatası:", err));
