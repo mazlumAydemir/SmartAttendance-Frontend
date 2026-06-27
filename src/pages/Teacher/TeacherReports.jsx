@@ -3,10 +3,8 @@ import { FaSignOutAlt, FaList, FaStopCircle, FaInfoCircle, FaCalendarAlt, FaCloc
 import DashboardLayout from '../../layouts/DashboardLayout';
 import './TeacherReports.css';
 import { useNavigate } from 'react-router-dom';
-// 🔥 DEĞİŞİKLİK
 import axiosInstance from '../../api/axiosInstance';
 import * as signalR from '@microsoft/signalr';
-
 
 const TeacherReports = () => {
   const navigate = useNavigate();
@@ -19,11 +17,13 @@ const TeacherReports = () => {
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [hubConnection, setHubConnection] = useState(null);
 
+  // ==========================================================
+  // TÜM RAPORLARI GETİR
+  // ==========================================================
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
 
-      // 🔥 DEĞİŞİKLİK
       const [activeRes, historyRes] = await Promise.all([
         axiosInstance.get('/Attendance/my-active-sessions'),
         axiosInstance.get('/Attendance/instructor/history/sessions')
@@ -68,47 +68,46 @@ const TeacherReports = () => {
     fetchAllData();
   }, [fetchAllData]);
 
+  // ==========================================================
+  // YOKLAMA DURDUR & SİL
+  // ==========================================================
   const handleStopSession = async (sessionId) => {
     const confirm = window.confirm("Bu yoklamayı kapatmak istediğinize emin misiniz? Öğrenciler artık giriş yapamayacak.");
     if (!confirm) return;
 
     try {
-      // 🔥 DEĞİŞİKLİK
       await axiosInstance.post(`/Attendance/end/${sessionId}`, {});
-
       setReports(prevReports => 
         prevReports.map(report => 
           report.sessionId === sessionId ? { ...report, isActive: false } : report
         )
       );
-      
       alert("✅ Yoklama başarıyla kapatıldı.");
-
     } catch (error) {
       alert("❌ İşlem başarısız: " + (error.response?.data?.message || error.message));
     }
   };
-const handleDeleteSession = async (sessionId) => {
+
+  const handleDeleteSession = async (sessionId) => {
     const isConfirmed = window.confirm("⚠️ DİKKAT: Bu yoklamayı tamamen silmek istediğinize emin misiniz? Öğrencilerin bu derse ait devamsızlık istatistikleri sıfırlanacaktır. Bu işlem geri alınamaz!");
     if (!isConfirmed) return;
 
     try {
-      // Backend'e silme isteğini gönderiyoruz
       await axiosInstance.delete(`/Attendance/instructor/session/${sessionId}`);
-      
-      // Başarılı olursa o raporu ekrandan anında (state'ten) siliyoruz
       setReports(prevReports => prevReports.filter(report => report.sessionId !== sessionId));
-      
       alert("✅ Yoklama başarıyla silindi!");
     } catch (error) {
       alert("❌ HATA: Yoklama silinemedi. " + (error.response?.data?.message || error.message));
     }
   };
+
+  // ==========================================================
+  // GLOBAL SİGNALR BAĞLANTISI (AÇIK/KAPALI DİNLEME)
+  // ==========================================================
   useEffect(() => {
     const token = localStorage.getItem('jwtToken');
     if (!token) return;
 
-    // 🔥 DEĞİŞİKLİK: SignalR URL'i Env dosyasından
     const baseUrl = import.meta.env.VITE_API_BASE_URL.replace(/\/api\/?$/, '');
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(`${baseUrl}/attendanceHub`, {
@@ -119,7 +118,7 @@ const handleDeleteSession = async (sessionId) => {
 
     connection.start()
       .then(() => {
-        console.log("[SignalR] Hoca bağlantısı kuruldu!");
+        console.log("[SignalR] Hoca ana bağlantısı kuruldu!");
         setHubConnection(connection);
 
         connection.on("SessionEndedGlobal", (sessionId) => {
@@ -138,18 +137,41 @@ const handleDeleteSession = async (sessionId) => {
     };
   }, [fetchAllData]);
 
+  // ==========================================================
+  // ODA İÇİ SİGNALR DİNLEYİCİSİ (ÖĞRENCİ KATILIM ANLIK TAKİP)
+  // ==========================================================
   useEffect(() => {
     if (hubConnection && expandedReportId) {
       hubConnection.invoke("JoinSessionGroup", expandedReportId.toString())
-        .catch(err => console.error("Odaya girilemedi:", err));
+        .catch(err => console.error("[SignalR] Odaya girilemedi:", err));
 
-      const handleStudentAttended = (data) => {
-        const incomingId = data.studentId || data.StudentId;
-        const incomingStatus = data.status || data.Status;
-        
+      const handleStudentAttended = (param1) => {
+        console.log("🔥 [SignalR] Yoklama Geldi! Ham Veri:", param1);
+
+        let incomingId;
+        let incomingStatus;
+
+        // C# tarafı "new { StudentId = sId, Status = "Present" }" şeklinde obje atıyor.
+        if (typeof param1 === 'object' && param1 !== null) {
+          // Gelen objede büyük/küçük harf durumlarını garantiye alıyoruz
+          incomingId = param1.studentId || param1.StudentId || param1.id || param1.Id;
+          incomingStatus = param1.status || param1.Status;
+        } else {
+          console.warn("[SignalR] Beklenmeyen veri formatı!");
+          return;
+        }
+
+        // Eğer backend enum sayısını atarsa diye önlem
+        if (incomingStatus === 1 || incomingStatus === "1") incomingStatus = "Present";
+        if (incomingStatus === 2 || incomingStatus === "2") incomingStatus = "Absent";
+        if (incomingStatus === 3 || incomingStatus === "3") incomingStatus = "Excused";
+
+        console.log(`✅ İşlenen Veri -> ID: ${incomingId}, Status: ${incomingStatus}`);
+
+        // State'i güncelle (Sıkı eşitliğe yakalanmamak için ID'leri zorla String yapıyoruz)
         setSessionStudents(prevStudents => 
           prevStudents.map(student => 
-            student.studentId === incomingId 
+            String(student.studentId) === String(incomingId) 
               ? { ...student, status: incomingStatus } 
               : student
           )
@@ -161,11 +183,14 @@ const handleDeleteSession = async (sessionId) => {
       return () => {
         hubConnection.off("StudentAttended", handleStudentAttended);
         hubConnection.invoke("LeaveSessionGroup", expandedReportId.toString())
-          .catch(err => console.error("Odadan çıkılamadı:", err));
+          .catch(err => console.error("[SignalR] Odadan çıkılamadı:", err));
       };
     }
   }, [hubConnection, expandedReportId]);
 
+  // ==========================================================
+  // LİSTEYİ AÇ / KAPA VE ÖĞRENCİLERİ ÇEK
+  // ==========================================================
   const toggleExpand = async (sessionId) => {
     if (expandedReportId === sessionId) {
       setExpandedReportId(null); 
@@ -174,7 +199,6 @@ const handleDeleteSession = async (sessionId) => {
       setExpandedReportId(sessionId); 
       setLoadingStudents(true);
       try {
-        // 🔥 DEĞİŞİKLİK
         const response = await axiosInstance.get(`/Attendance/full-class-list/${sessionId}`);
         setSessionStudents(response.data);
       } catch (error) {
@@ -186,10 +210,14 @@ const handleDeleteSession = async (sessionId) => {
     }
   };
 
+  // ==========================================================
+  // MANUEL DURUM GÜNCELLEME (HOCANIN EL İLE P/A/E YAPMASI)
+  // ==========================================================
   const handleStatusUpdate = async (studentId, newStatusString, newStatusInt) => {
     const currentStudent = sessionStudents.find(s => s.studentId === studentId);
     if (currentStudent && currentStudent.status === newStatusString) return;
 
+    // UI'ı anında güncelle (Optimistic UI)
     setSessionStudents(prevStudents => 
       prevStudents.map(student => 
         student.studentId === studentId 
@@ -199,21 +227,22 @@ const handleDeleteSession = async (sessionId) => {
     );
 
     try {
-      // 🔥 DEĞİŞİKLİK
       await axiosInstance.post('/Attendance/update-status', {
           sessionId: expandedReportId,
           studentId: studentId,
           status: newStatusInt, 
           description: "Manuel Güncelleme"
       });
-
     } catch (error) {
       console.error("Güncelleme hatası:", error);
       alert("Durum güncellenemedi!");
-      toggleExpand(expandedReportId); 
+      toggleExpand(expandedReportId); // Hata olursa listeyi yenile
     }
   };
 
+  // ==========================================================
+  // FORMATLAMA FONKSİYONLARI
+  // ==========================================================
   const formatDate = (dateString) => {
     if(!dateString) return "-";
     return new Date(dateString).toLocaleDateString('tr-TR');
@@ -240,6 +269,9 @@ const handleDeleteSession = async (sessionId) => {
     return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   };
 
+  // ==========================================================
+  // EKRAN RENDER
+  // ==========================================================
   return (
     <DashboardLayout role="teacher">
       <header className="dashboard-header">
@@ -323,6 +355,7 @@ const handleDeleteSession = async (sessionId) => {
                 </div>
               </div>
 
+              {/* LİSTE AÇILINCA GÖRÜNEN ÖĞRENCİ DETAY PANELI */}
               {expandedReportId === report.sessionId && (
                 <div className="report-details-panel">
                   
@@ -354,7 +387,6 @@ const handleDeleteSession = async (sessionId) => {
                             </div>
 
                             <div className="attendance-actions">
-                              
                               <div 
                                 className={`circle-indicator ${student.status === 'Present' ? 'circle-green' : 'circle-inactive'}`}
                                 onClick={() => handleStatusUpdate(student.studentId, 'Present', 1)}
@@ -378,7 +410,6 @@ const handleDeleteSession = async (sessionId) => {
                               >
                                 E
                               </div>
-
                             </div>
 
                           </div>

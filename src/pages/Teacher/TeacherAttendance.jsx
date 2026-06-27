@@ -1,430 +1,613 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { FaSignOutAlt, FaList, FaStopCircle, FaInfoCircle, FaCalendarAlt, FaClock, FaCalendarDay, FaSpinner, FaHistory, FaBroadcastTower, FaTrash } from 'react-icons/fa';
-import DashboardLayout from '../../layouts/DashboardLayout';
-import './TeacherReports.css';
+import React, { useState, useEffect, useRef } from 'react';
+import { FaSignOutAlt, FaQrcode, FaSmile, FaMapMarkerAlt, FaChevronRight, FaSpinner, FaCheckCircle, FaCalendarAlt, FaClock, FaSyncAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import QRCode from "react-qr-code";
+import Webcam from "react-webcam";
 import axiosInstance from '../../api/axiosInstance';
-import * as signalR from '@microsoft/signalr';
+import DashboardLayout from '../../layouts/DashboardLayout';
+import './TeacherAttendance.css'; 
 
-const TeacherReports = () => {
+const TeacherAttendance = () => {
   const navigate = useNavigate();
   
-  const [reports, setReports] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // STATE
+  const [showModal, setShowModal] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [attendanceType, setAttendanceType] = useState('');
   
-  const [expandedReportId, setExpandedReportId] = useState(null);
-  const [sessionStudents, setSessionStudents] = useState([]); 
-  const [loadingStudents, setLoadingStudents] = useState(false);
-  const [hubConnection, setHubConnection] = useState(null);
+  const [courses, setCourses] = useState([]);
+  const [selectedCourseIds, setSelectedCourseIds] = useState(''); 
+  const [selectedDateOnly, setSelectedDateOnly] = useState(new Date().toISOString().slice(0, 10));
+  const [selectedPeriodTime, setSelectedPeriodTime] = useState("08:30");
 
-  // ==========================================================
-  // TÜM RAPORLARI GETİR
-  // ==========================================================
-  const fetchAllData = useCallback(async () => {
-    try {
-      setLoading(true);
+  const classPeriods = [
+    { id: 1, label: "08:30 - 09:20", value: "08:30" },
+    { id: 2, label: "09:30 - 10:20", value: "09:30" },
+    { id: 3, label: "10:30 - 11:20", value: "10:30" },
+    { id: 4, label: "11:30 - 12:20", value: "11:30" },
+    { id: 5, label: "12:30 - 13:20", value: "12:30" },
+    { id: 6, label: "13:30 - 14:20", value: "13:30" },
+    { id: 7, label: "14:30 - 15:20", value: "14:30" },
+    { id: 8, label: "15:30 - 16:20", value: "15:30" },
+    { id: 9, label: "16:30 - 17:20", value: "16:30" }
+  ];
+  
+  const [createdSession, setCreatedSession] = useState(null);
+  const [qrContent, setQrContent] = useState("");
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(12); // 🆕 QR Kod Sayacı
 
-      const [activeRes, historyRes] = await Promise.all([
-        axiosInstance.get('/Attendance/my-active-sessions'),
-        axiosInstance.get('/Attendance/instructor/history/sessions')
-      ]);
+  // FACE RECOGNITION
+  const webcamRef = useRef(null);
+  const [recognizedNames, setRecognizedNames] = useState([]);
+  const [facingMode, setFacingMode] = useState("environment");
+  const [liveNotifications, setLiveNotifications] = useState([]);
+  const activeRecognizedNames = useRef([]); 
 
-      const activeData = activeRes.data.map(item => ({
-        sessionId: item.sessionId,
-        sessionCode: item.sessionCode,
-        startTime: item.startTime,
-        methodName: item.methodName,
-        courseNames: Array.isArray(item.courseNames) ? item.courseNames.join(', ') : item.courseNames,
-        isActive: true, 
-        attendedCount: 0, 
-        totalStudents: 0
-      }));
+  // KAMERA YÖNETİMİ
+  const [availableCameras, setAvailableCameras] = useState([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState(null);
+  const [cameraError, setCameraError] = useState(null);
 
-      const historyData = historyRes.data.map(item => ({
-        sessionId: item.sessionId,
-        sessionCode: "KAPALI",
-        startTime: item.startTime,
-        methodName: item.method, 
-        courseNames: item.courseNames,
-        isActive: false, 
-        attendedCount: item.attendedCount,
-        totalStudents: item.totalStudents
-      }));
+  // SCANNING CONTROL
+  const [isContinuousScanning, setIsContinuousScanning] = useState(false);
+  const scanningRef = useRef(false);
+  const timeoutRef = useRef(null);
+  const processingRef = useRef(false);
 
-      const combined = [...activeData, ...historyData].sort((a, b) => 
-        new Date(b.startTime) - new Date(a.startTime)
-      );
 
-      setReports(combined);
+  // ⭐ DÜZELTME: Ticks çarpımı JS'in güvenli tamsayı sınırını (2^53) aştığı için
+  // hassasiyet kaybı oluyordu. Bunun yerine doğrudan UTC epoch milisaniye gönderiyoruz.
+  // Date.now() zaten UTC döndürür, overflow yoktur.
+  const getQrTimestamp = () => {
+    return Date.now(); // UTC epoch milisaniye
+  };
 
-    } catch (error) {
-      console.error("Veriler çekilemedi:", error);
-    } finally {
-      setLoading(false);
+  // KAMERALARI LİSTELE VE ANA KAMERAYI BUL
+  useEffect(() => {
+    if (showModal && attendanceType === 'FaceRecognition') {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          stream.getTracks().forEach(t => t.stop());
+          return navigator.mediaDevices.enumerateDevices();
+        })
+        .then(allDevices => {
+          const videoDevices = allDevices.filter(d => d.kind === 'videoinput');
+          setAvailableCameras(videoDevices);
+          
+          let mainCamera = videoDevices.find(d => {
+            const label = d.label.toLowerCase();
+            return label.includes('back') && 
+                   !label.includes('wide') &&    
+                   !label.includes('tele') &&     
+                   !label.includes('depth');      
+          });
+          
+          if (!mainCamera) mainCamera = videoDevices.find(d => d.label.toLowerCase().includes('back'));
+          if (!mainCamera && videoDevices.length > 0) mainCamera = videoDevices.find(d => d.label.includes('0,')) || videoDevices[0];
+          
+          if (mainCamera) setSelectedDeviceId(mainCamera.deviceId);
+        })
+        .catch(err => {
+          console.error("Kamera erişim hatası:", err);
+          setCameraError(`Kamera izni alınamadı: ${err.name}`);
+        });
     }
+  }, [showModal, attendanceType]);
+
+  // QR KODU VE SAYACI GÜNCELLE
+  useEffect(() => {
+    let intervalId;
+    if (createdSession && createdSession.sessionCode && attendanceType === 'QRCode') {
+      
+      const updateQR = () => {
+        setQrContent(`${createdSession.sessionCode}||${getQrTimestamp()}`);
+        console.log("[QR DEBUG] Gönderilen timestamp:", getQrTimestamp(), "Hane sayısı:", getQrTimestamp().toString().length);
+        setTimeLeft(12);
+      };
+
+      updateQR(); 
+
+      intervalId = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            updateQR();
+            return 12;
+          }
+          return prev - 1;
+        });
+      }, 1000); 
+    }
+    return () => { if (intervalId) clearInterval(intervalId); };
+  }, [createdSession, attendanceType]);
+
+  // Dersleri Yükle
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setLoadingCourses(true);
+        const response = await axiosInstance.get('/Attendance/my-courses');
+        
+        const grouped = {};
+        response.data.forEach(course => {
+          const match = course.courseCode.match(/\d+/);
+          const num = match ? match[0] : course.courseCode;
+
+          if (!grouped[num]) {
+            grouped[num] = { ids: [course.id], codes: [course.courseCode], names: [course.courseName] };
+          } else {
+            grouped[num].ids.push(course.id);
+            grouped[num].codes.push(course.courseCode);
+            grouped[num].names.push(course.courseName);
+          }
+        });
+
+        const displayCourses = Object.values(grouped).map(g => ({
+          value: g.ids.join(','), 
+          label: g.ids.length === 1 ? `${g.codes[0]} - ${g.names[0]}` : `${g.codes.join(' / ')} - ${g.names[0]}`
+        }));
+
+        setCourses(displayCourses);
+        if (displayCourses.length > 0) setSelectedCourseIds(displayCourses[0].value); 
+      } catch (err) {
+        console.error("Dersler yüklenemedi:", err);
+      } finally {
+        setLoadingCourses(false);
+      }
+    };
+    fetchCourses();
   }, []);
 
-  useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
+  const handleOpenModal = (title, type) => {
+    setModalTitle(title);
+    setAttendanceType(type);
+    setCreatedSession(null); 
+    setQrContent(""); 
+    setRecognizedNames([]); 
+    activeRecognizedNames.current = []; 
+    setLiveNotifications([]); 
+    setFacingMode("environment"); 
+    setCameraError(null);
+    setTimeLeft(12);
+    
+    setIsContinuousScanning(false);
+    scanningRef.current = false;
+    processingRef.current = false;
+    clearTimeout(timeoutRef.current);
 
-  // ==========================================================
-  // YOKLAMA DURDUR & SİL
-  // ==========================================================
-  const handleStopSession = async (sessionId) => {
-    const confirm = window.confirm("Bu yoklamayı kapatmak istediğinize emin misiniz? Öğrenciler artık giriş yapamayacak.");
-    if (!confirm) return;
+    setSelectedDateOnly(new Date().toISOString().slice(0, 10));
+    setShowModal(true);
+  };
 
-    try {
-      await axiosInstance.post(`/Attendance/end/${sessionId}`, {});
-      setReports(prevReports => 
-        prevReports.map(report => 
-          report.sessionId === sessionId ? { ...report, isActive: false } : report
-        )
-      );
-      alert("✅ Yoklama başarıyla kapatıldı.");
-    } catch (error) {
-      alert("❌ İşlem başarısız: " + (error.response?.data?.message || error.message));
+  const handleCloseModal = () => {
+    scanningRef.current = false;
+    processingRef.current = false;
+    clearTimeout(timeoutRef.current);
+    setIsContinuousScanning(false);
+    setShowModal(false);
+    setSubmitting(false);
+    setCreatedSession(null);
+    setRecognizedNames([]); 
+    activeRecognizedNames.current = [];
+    setLiveNotifications([]);
+    setCameraError(null);
+  };
+
+  // KAMERA YÖNÜNÜ ÇEVİR
+  const toggleCamera = () => {
+    const backCameras = availableCameras.filter(d => d.label.toLowerCase().includes('back'));
+    const frontCameras = availableCameras.filter(d => d.label.toLowerCase().includes('front'));
+
+    const currentIsBack = backCameras.some(d => d.deviceId === selectedDeviceId);
+    
+    if (currentIsBack && frontCameras.length > 0) {
+      setSelectedDeviceId(frontCameras[0].deviceId);
+      setFacingMode("user");
+    } else if (backCameras.length > 0) {
+      const mainBack = backCameras.find(d => !d.label.toLowerCase().includes('wide') && !d.label.toLowerCase().includes('tele')) || backCameras[0];
+      setSelectedDeviceId(mainBack.deviceId);
+      setFacingMode("environment");
     }
   };
 
-  const handleDeleteSession = async (sessionId) => {
-    const isConfirmed = window.confirm("⚠️ DİKKAT: Bu yoklamayı tamamen silmek istediğinize emin misiniz? Öğrencilerin bu derse ait devamsızlık istatistikleri sıfırlanacaktır. Bu işlem geri alınamaz!");
-    if (!isConfirmed) return;
+  const handleStartAttendance = async () => {
+    if (!selectedCourseIds) { alert("Lütfen bir ders seçiniz!"); return; }
 
     try {
-      await axiosInstance.delete(`/Attendance/instructor/session/${sessionId}`);
-      setReports(prevReports => prevReports.filter(report => report.sessionId !== sessionId));
-      alert("✅ Yoklama başarıyla silindi!");
-    } catch (error) {
-      alert("❌ HATA: Yoklama silinemedi. " + (error.response?.data?.message || error.message));
+      setSubmitting(true);
+      let methodEnum = 1; let requireFace = false;
+      if (attendanceType === 'QRCode') { methodEnum = 1; } 
+      else if (attendanceType === 'Location') { methodEnum = 2; } 
+      else if (attendanceType === 'FaceRecognition') { methodEnum = 3; requireFace = true; } 
+
+      const payload = {
+        courseIds: selectedCourseIds.split(',').map(id => parseInt(id)), 
+        method: methodEnum,                      
+        requireFaceVerification: requireFace,    
+        requireDeviceVerification: true,         
+        radiusMeters: 50,                        
+        startTime: `${selectedDateOnly}T${selectedPeriodTime}:00` 
+      };
+
+      const response = await axiosInstance.post('/Attendance/start', payload);
+      setCreatedSession(response.data);
+    } catch (err) {
+      alert("HATA: " + (err.response?.data?.message || "Yoklama başlatılamadı."));
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // ==========================================================
-  // GLOBAL SİGNALR BAĞLANTISI (AÇIK/KAPALI DİNLEME)
-  // ==========================================================
-  useEffect(() => {
-    const token = localStorage.getItem('jwtToken');
-    if (!token) return;
+  // HD TARAMA
+  const processNextFrame = async () => {
+    if (!scanningRef.current || !webcamRef.current || !createdSession) return;
+    
+    if (processingRef.current) {
+        timeoutRef.current = setTimeout(processNextFrame, 1000);
+        return;
+    }
 
-    const baseUrl = import.meta.env.VITE_API_BASE_URL.replace(/\/api\/?$/, '');
-    const connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${baseUrl}/attendanceHub`, {
-        accessTokenFactory: () => token
-      })
-      .withAutomaticReconnect()
-      .build();
+    try {
+      processingRef.current = true;
+      const video = webcamRef.current.video;
+      
+      if (video && video.readyState === 4 && video.videoWidth > 0) {
+        let drawW = video.videoWidth;
+        let drawH = video.videoHeight;
+        const MAX_DIM = 1920;
 
-    connection.start()
-      .then(() => {
-        console.log("[SignalR] Hoca ana bağlantısı kuruldu!");
-        setHubConnection(connection);
-
-        connection.on("SessionEndedGlobal", (sessionId) => {
-          setReports(prev => prev.map(r => r.sessionId === sessionId ? { ...r, isActive: false } : r));
-        });
-
-        connection.on("SessionStarted", () => {
-          console.log("[SignalR] Yeni oturum açıldı, liste güncelleniyor...");
-          fetchAllData(); 
-        });
-      })
-      .catch(err => console.error("[SignalR] Hoca Bağlantı Hatası:", err));
-
-    return () => {
-        connection.stop();
-    };
-  }, [fetchAllData]);
-
-  // ==========================================================
-  // ODA İÇİ SİGNALR DİNLEYİCİSİ (ÖĞRENCİ KATILIM ANLIK TAKİP)
-  // ==========================================================
-  useEffect(() => {
-    if (hubConnection && expandedReportId) {
-      hubConnection.invoke("JoinSessionGroup", expandedReportId.toString())
-        .catch(err => console.error("[SignalR] Odaya girilemedi:", err));
-
-      const handleStudentAttended = (param1) => {
-        console.log("🔥 [SignalR] Yoklama Geldi! Ham Veri:", param1);
-
-        let incomingId;
-        let incomingStatus;
-
-        // C# tarafı "new { StudentId = sId, Status = "Present" }" şeklinde obje atıyor.
-        if (typeof param1 === 'object' && param1 !== null) {
-          // Gelen objede büyük/küçük harf durumlarını garantiye alıyoruz
-          incomingId = param1.studentId || param1.StudentId || param1.id || param1.Id;
-          incomingStatus = param1.status || param1.Status;
-        } else {
-          console.warn("[SignalR] Beklenmeyen veri formatı!");
-          return;
+        if (Math.max(drawW, drawH) > MAX_DIM) {
+          const ratio = drawW / drawH;
+          if (drawW > drawH) {
+            drawW = MAX_DIM;
+            drawH = Math.round(MAX_DIM / ratio);
+          } else {
+            drawH = MAX_DIM;
+            drawW = Math.round(MAX_DIM * ratio);
+          }
         }
 
-        // Eğer backend enum sayısını atarsa diye önlem
-        if (incomingStatus === 1 || incomingStatus === "1") incomingStatus = "Present";
-        if (incomingStatus === 2 || incomingStatus === "2") incomingStatus = "Absent";
-        if (incomingStatus === 3 || incomingStatus === "3") incomingStatus = "Excused";
+        const canvas = document.createElement('canvas');
+        canvas.width = drawW;
+        canvas.height = drawH;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, drawW, drawH);
 
-        console.log(`✅ İşlenen Veri -> ID: ${incomingId}, Status: ${incomingStatus}`);
+        const frameBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+        const frameFile = new File([frameBlob], `frame_${Date.now()}.jpg`, { type: 'image/jpeg' });
 
-        // State'i güncelle (Sıkı eşitliğe yakalanmamak için ID'leri zorla String yapıyoruz)
-        setSessionStudents(prevStudents => 
-          prevStudents.map(student => 
-            String(student.studentId) === String(incomingId) 
-              ? { ...student, status: incomingStatus } 
-              : student
-          )
-        );
-      };
+        const formData = new FormData();
+        formData.append('sessionId', createdSession.sessionId); 
+        formData.append('frame', frameFile);
 
-      hubConnection.on("StudentAttended", handleStudentAttended);
+        const response = await axiosInstance.post('/Attendance/instructor/scan-crowd', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
 
-      return () => {
-        hubConnection.off("StudentAttended", handleStudentAttended);
-        hubConnection.invoke("LeaveSessionGroup", expandedReportId.toString())
-          .catch(err => console.error("[SignalR] Odadan çıkılamadı:", err));
-      };
-    }
-  }, [hubConnection, expandedReportId]);
+        let foundStudents = [];
+        if (Array.isArray(response.data)) {
+            foundStudents = response.data;
+        } else if (response.data && typeof response.data === 'object') {
+            if (Array.isArray(response.data.data)) foundStudents = response.data.data;
+            else if (Array.isArray(response.data.recognizedIds)) foundStudents = response.data.recognizedIds;
+            else if (Array.isArray(response.data.names)) foundStudents = response.data.names;
+            else {
+               const arrayKey = Object.keys(response.data).find(key => Array.isArray(response.data[key]));
+               if (arrayKey) foundStudents = response.data[arrayKey];
+            }
+        }
 
-  // ==========================================================
-  // LİSTEYİ AÇ / KAPA VE ÖĞRENCİLERİ ÇEK
-  // ==========================================================
-  const toggleExpand = async (sessionId) => {
-    if (expandedReportId === sessionId) {
-      setExpandedReportId(null); 
-      setSessionStudents([]);
-    } else {
-      setExpandedReportId(sessionId); 
-      setLoadingStudents(true);
-      try {
-        const response = await axiosInstance.get(`/Attendance/full-class-list/${sessionId}`);
-        setSessionStudents(response.data);
-      } catch (error) {
-        console.error("Öğrenci listesi alınamadı:", error);
-        alert("Liste yüklenemedi. Lütfen internet bağlantınızı kontrol edin.");
-      } finally {
-        setLoadingStudents(false);
+        if (foundStudents.length > 0) {
+          const freshNames = foundStudents.map(String).filter(name => !activeRecognizedNames.current.includes(name));
+
+          if (freshNames.length > 0) {
+            setRecognizedNames(prev => [...new Set([...prev, ...freshNames])]);
+            activeRecognizedNames.current.push(...freshNames);
+
+            const newNotifs = freshNames.map((name, index) => ({
+              id: Date.now() + index + Math.random(),
+              name: name
+            }));
+
+            setLiveNotifications(prev => [...prev, ...newNotifs]);
+
+            setTimeout(() => {
+              setLiveNotifications(currentNotifs => 
+                currentNotifs.filter(n => !newNotifs.some(nn => nn.id === n.id))
+              );
+            }, 2500);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Tarama Hatası:", error);
+    } finally {
+      processingRef.current = false; 
+      if (scanningRef.current) {
+        timeoutRef.current = setTimeout(processNextFrame, 3000); 
       }
     }
   };
 
-  // ==========================================================
-  // MANUEL DURUM GÜNCELLEME (HOCANIN EL İLE P/A/E YAPMASI)
-  // ==========================================================
-  const handleStatusUpdate = async (studentId, newStatusString, newStatusInt) => {
-    const currentStudent = sessionStudents.find(s => s.studentId === studentId);
-    if (currentStudent && currentStudent.status === newStatusString) return;
-
-    // UI'ı anında güncelle (Optimistic UI)
-    setSessionStudents(prevStudents => 
-      prevStudents.map(student => 
-        student.studentId === studentId 
-          ? { ...student, status: newStatusString } 
-          : student
-      )
-    );
-
-    try {
-      await axiosInstance.post('/Attendance/update-status', {
-          sessionId: expandedReportId,
-          studentId: studentId,
-          status: newStatusInt, 
-          description: "Manuel Güncelleme"
-      });
-    } catch (error) {
-      console.error("Güncelleme hatası:", error);
-      alert("Durum güncellenemedi!");
-      toggleExpand(expandedReportId); // Hata olursa listeyi yenile
+  const handleCameraReady = () => {
+    if (!scanningRef.current && createdSession) {
+      scanningRef.current = true;
+      processingRef.current = false;
+      setIsContinuousScanning(true);
+      clearTimeout(timeoutRef.current); 
+      processNextFrame(); 
     }
   };
 
-  // ==========================================================
-  // FORMATLAMA FONKSİYONLARI
-  // ==========================================================
-  const formatDate = (dateString) => {
-    if(!dateString) return "-";
-    return new Date(dateString).toLocaleDateString('tr-TR');
+  const handleCameraError = (error) => {
+    console.error("KAMERA HATASI:", error);
+    const errName = error.name || 'Unknown';
+    const errMsg = error.message || error.toString();
+    setCameraError(`${errName}: ${errMsg}`);
   };
 
-  const formatTime = (dateString) => {
-    if(!dateString) return "-";
-    return new Date(dateString).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const getDayName = (dateString) => {
-    if(!dateString) return "-";
-    return new Date(dateString).toLocaleDateString('tr-TR', { weekday: 'short' });
-  };
-
-  const getAvatarColor = (name) => {
-    const colors = ['avatar-blue', 'avatar-green', 'avatar-orange', 'avatar-purple'];
-    const index = (name?.length || 0) % colors.length;
-    return colors[index];
-  };
-
-  const getInitials = (name) => {
-    if (!name) return "?";
-    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-  };
-
-  // ==========================================================
-  // EKRAN RENDER
-  // ==========================================================
   return (
     <DashboardLayout role="teacher">
       <header className="dashboard-header">
-        <h1>Raporlar</h1>
+        <h1>Yoklama Başlat</h1>
         <div className="header-actions">
           <button className="lang-btn">TR</button>
-          <FaSignOutAlt className="logout-icon" onClick={() => navigate('/')}/>
+          <FaSignOutAlt className="logout-icon" onClick={() => navigate('/')} />
         </div>
       </header>
 
-      <div className="reports-container">
-        <h3 className="page-label">Yoklama Geçmişi</h3>
+      <div className="attendance-cards-container">
+        <div className="attendance-card card-blue" onClick={() => handleOpenModal('QR Kod ile Yoklama', 'QRCode')}>
+          <div className="card-icon-box"><FaQrcode /></div>
+          <div className="card-content"><h3>QR Kod</h3><p>Hızlı yoklama</p></div>
+          <div className="card-arrow"><FaChevronRight /></div>
+        </div>
 
-        {loading ? (
-          <div style={{textAlign: 'center', padding: '50px', color: '#666'}}>
-            <FaSpinner className="fa-spin" size={30} /> 
-            <p>Veriler yükleniyor...</p>
-          </div>
-        ) : reports.length === 0 ? (
-          <div className="empty-state">
-            Henüz hiç yoklama kaydı bulunmamaktadır.
-          </div>
-        ) : (
-          reports.map((report) => (
-            <div key={report.sessionId} className={`report-card-wrapper ${!report.isActive ? 'closed-session' : 'active-session-glow'}`}>
-              
-              <div className="report-summary">
-                
-                <div className="tags-row">
-                  {report.isActive ? 
-                    <span className="tag tag-red-pulse"><FaBroadcastTower /> CANLI</span> :
-                    <span className="tag tag-gray"><FaHistory /> GEÇMİŞ</span>
-                  }
-                  <span className="tag tag-blue"><FaCalendarAlt /> {formatDate(report.startTime)}</span>
-                  <span className="tag tag-green"><FaClock /> {formatTime(report.startTime)}</span>
-                  <span className="tag tag-orange"><FaCalendarDay /> {getDayName(report.startTime)}</span>
+        <div className="attendance-card card-green" onClick={() => handleOpenModal('Yüz Tanıma ile Yoklama', 'FaceRecognition')}>
+          <div className="card-icon-box"><FaSmile /></div>
+          <div className="card-content"><h3>Yüz Tanıma</h3><p>Biyometrik yoklama</p></div>
+          <div className="card-arrow"><FaChevronRight /></div>
+        </div>
+
+        <div className="attendance-card card-orange" onClick={() => handleOpenModal('Konum Bazlı Yoklama', 'Location')}>
+          <div className="card-icon-box"><FaMapMarkerAlt /></div>
+          <div className="card-content"><h3>Konum</h3><p>GPS ile yoklama</p></div>
+          <div className="card-arrow"><FaChevronRight /></div>
+        </div>
+      </div>
+
+      {showModal && (
+        <div className="modal-overlay" onClick={handleCloseModal}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+             
+            {createdSession ? (
+              <div style={{ textAlign: 'center', padding: '10px' }}>
+                 
+                {attendanceType === 'QRCode' && (
+                  <>
+                    <h2 style={{ color: '#2e7d32', marginBottom: '10px' }}>Yoklama Başlatıldı!</h2>
+                    
+                    {/* 🆕 SAYAÇ ÇUBUĞU */}
+                    <div style={{ width: '220px', height: '8px', background: '#e0e0e0', borderRadius: '4px', margin: '0 auto 10px auto', overflow: 'hidden' }}>
+                      <div style={{ width: `${(timeLeft / 12) * 100}%`, height: '100%', background: '#ff9800', transition: 'width 1s linear' }}></div>
+                    </div>
+                    
+                    <p style={{ fontSize:'14px', color: '#e65100', fontWeight:'bold', marginBottom: '15px' }}>
+                      QR Kod yenileniyor: {timeLeft}s
+                    </p>
+                    
+                    <div style={{ background: 'white', padding: '15px', display: 'inline-block', border: '1px solid #ddd', borderRadius: '8px', marginBottom: '15px' }}>
+                      {qrContent ? <QRCode value={qrContent} size={220} /> : <p>QR Oluşturuluyor...</p>}
+                    </div>
+
                   
-                  <span className="tag method-tag">
-                    {report.methodName === 'QrCode' ? 'QR Kod' : report.methodName === 'Location' ? 'Konum' : 'Yüz Tanıma'}
-                  </span>
-                </div>
+                  </>
+                )}
 
-                <h3 className="report-course-title">
-                  {report.courseNames || "Ders Adı Yok"}
-                </h3>
-                
-                {!report.isActive && (
-                    <div className="mini-stats">
-                        <span style={{fontSize:'12px', color:'#666'}}>Katılım: <b>{report.attendedCount}/{report.totalStudents}</b></span>
+                {attendanceType === 'FaceRecognition' && (
+                  <div style={{ padding: '0px', width: '100%', maxWidth: '500px', margin: '0 auto' }}>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <h2 style={{ color: '#2e7d32', margin: 0, fontSize: '1.2rem' }}>Canlı Sınıf Taraması</h2>
+                        <button 
+                          onClick={toggleCamera} 
+                          style={{ background: '#e2e8f0', color: '#334155', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', fontSize: '12px' }}
+                        >
+                          <FaSyncAlt /> Çevir
+                        </button>
+                      </div>
+
+                      {cameraError && (
+                        <div style={{ background: '#fee', color: '#c00', padding: '10px', borderRadius: '6px', marginBottom: '10px', fontSize: '12px' }}>
+                          ⚠️ {cameraError}
+                        </div>
+                      )}
+                      
+                      <div style={{ borderRadius: '12px', overflow: 'hidden', border: isContinuousScanning ? '4px solid #10b981' : '3px solid #1f2937', marginBottom: '15px', backgroundColor: '#000', minHeight: '250px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                        
+                        {isContinuousScanning && (
+                          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', background: 'rgba(16, 185, 129, 0.8)', color: 'white', padding: '4px 0', fontSize: '12px', fontWeight: 'bold', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}>
+                            <FaSpinner className="fa-spin" /> Otomatik Tarama Aktif
+                          </div>
+                        )}
+
+                        <div style={{ position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 20, pointerEvents: 'none' }}>
+                          {liveNotifications.map(notif => (
+                            <div key={notif.id} style={{
+                              background: 'rgba(16, 185, 129, 0.95)', color: 'white', padding: '10px 16px', borderRadius: '30px', 
+                              fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px',
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.3)', animation: 'slideDownFade 2.5s forwards'
+                            }}>
+                              <FaCheckCircle size={18} /> {notif.name} Okundu
+                            </div>
+                          ))}
+                        </div>
+
+                        <Webcam
+                          audio={false}
+                          ref={webcamRef}
+                          screenshotFormat="image/jpeg"
+                          screenshotQuality={0.95}
+                          videoConstraints={
+                            selectedDeviceId 
+                              ? {
+                                  deviceId: { exact: selectedDeviceId },
+                                  width: { ideal: 1920 },
+                                  height: { ideal: 1920 }
+                                }
+                              : { 
+                                  facingMode: { ideal: facingMode },
+                                  width: { ideal: 1920 },
+                                  height: { ideal: 1920 }
+                                }
+                          } 
+                          onUserMedia={handleCameraReady} 
+                          onUserMediaError={handleCameraError}
+                          style={{ width: '100%', height: 'auto', objectFit: 'cover' }}
+                        />
+                      </div>
+
+                      {availableCameras.length > 1 && (
+                        <div style={{ marginBottom: '15px' }}>
+                          <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: '#666', fontWeight: 'bold' }}>
+                            📷 Kamera Seç:
+                          </label>
+                          <select
+                            value={selectedDeviceId || ''}
+                            onChange={(e) => setSelectedDeviceId(e.target.value)}
+                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '12px' }}
+                          >
+                            {availableCameras.map(cam => (
+                              <option key={cam.deviceId} value={cam.deviceId}>
+                                {cam.label || `Kamera ${cam.deviceId.substring(0, 8)}`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      <style>
+                        {`
+                        @keyframes slideDownFade {
+                          0% { opacity: 0; transform: translateY(-20px) scale(0.9); }
+                          15% { opacity: 1; transform: translateY(0) scale(1); }
+                          80% { opacity: 1; transform: translateY(0) scale(1); }
+                          100% { opacity: 0; transform: translateY(-10px) scale(0.9); }
+                        }
+                        `}
+                      </style>
+
+                      <div style={{ textAlign: 'left', background: '#f3f4f6', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                        <h4 style={{ margin: '0 0 10px 0', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          ✅ Tanınan Öğrenciler 
+                          <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '12px', fontSize: '12px' }}>{recognizedNames.length}</span>
+                        </h4>
+                        {recognizedNames.length === 0 ? (
+                          <p style={{ margin: 0, fontSize: '13px', color: '#6b7280', fontStyle: 'italic' }}>Henüz kimse tespit edilmedi...</p>
+                        ) : (
+                          <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: '#047857', maxHeight: '120px', overflowY: 'auto' }}>
+                            {recognizedNames.map((name, idx) => (
+                              <li key={idx} style={{ marginBottom: '6px', fontWeight: 'bold' }}>{name}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                     </div>
                 )}
 
-                <div className="progress-action-row">
-                  <div style={{flex: 1}}></div> 
-
-                  <div className="action-buttons">
-                    {report.isActive ? (
-                      <button className="btn-stop" onClick={() => handleStopSession(report.sessionId)}>
-                        <FaStopCircle /> Durdur
-                      </button>
-                    ) : (
-                      <button className="btn-closed" disabled>Kapandı</button>
-                    )}
-
-                    <button 
-                      className={`btn-list ${expandedReportId === report.sessionId ? 'active' : ''}`}
-                      onClick={() => toggleExpand(report.sessionId)}
-                    >
-                      <FaList /> {expandedReportId === report.sessionId ? 'Gizle' : 'Liste'}
-                    </button>
-
-                    {/* 🔥 YENİ EKLENEN SİL BUTONU (EN SAĞDA) 🔥 */}
-                    <button 
-                      className="btn-delete" 
-                      onClick={() => handleDeleteSession(report.sessionId)}
-                      title="Yoklamayı Sil"
-                    >
-                      <FaTrash /> Sil
-                    </button>
+                {attendanceType === 'Location' && (
+                  <div style={{ padding: '30px 10px' }}>
+                    <FaCheckCircle style={{ fontSize: '60px', color: '#4caf50', marginBottom: '20px' }} />
+                    <h2 style={{ color: '#2e7d32', marginBottom: '10px' }}>Konum Yoklaması Aktif!</h2>
+                    <p style={{ color: '#555', marginBottom: '20px', fontSize: '16px' }}>Öğrenciler giriş yapabilirler.</p>
+                  
                   </div>
-                </div>
+                )}
+
+                <button className="btn-cancel" onClick={handleCloseModal} style={{ marginTop: '20px', padding: '12px 20px', width: '100%', border:'none', background:'#ef4444', color:'white', borderRadius:'8px', cursor:'pointer', fontWeight: 'bold' }}>
+                  {attendanceType === 'FaceRecognition' ? 'Pencereyi Kapat' : 'Kapat'}
+                </button>
               </div>
 
-              {/* LİSTE AÇILINCA GÖRÜNEN ÖĞRENCİ DETAY PANELI */}
-              {expandedReportId === report.sessionId && (
-                <div className="report-details-panel">
+            ) : (
+              <>
+                <h2 className="modal-title">{modalTitle}</h2>
+                
+                <div className="modal-body">
                   
-                  <div className="info-alert">
-                    <FaInfoCircle className="info-alert-icon" />
-                    <span><b>P:</b> Katıldı (Present) | <b>A:</b> Katılmadı (Absent) | <b>E:</b> Mazeretli (Excused)</span>
+                  <div className="form-group">
+                    <label style={{display:'block', marginBottom:'5px', fontWeight:'bold', color:'#555'}}>Ders Seçimi</label>
+                    {loadingCourses ? (
+                      <p>Yükleniyor...</p>
+                    ) : (
+                      <select 
+                        className="course-select-input" 
+                        value={selectedCourseIds} 
+                        onChange={(e) => setSelectedCourseIds(e.target.value)}
+                        style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #ccc', marginBottom: '15px' }}
+                      >
+                        {courses.length === 0 && <option value="">Ders bulunamadı</option>}
+                        {courses.map(c => (
+                          <option key={c.value} value={c.value}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
 
-                  {loadingStudents ? (
-                    <div style={{padding: '30px', textAlign:'center', color: '#666'}}>
-                       <FaSpinner className="fa-spin" /> Liste yükleniyor...
-                    </div>
-                  ) : (
-                    <div className="student-rows-container">
-                      {sessionStudents.length === 0 ? (
-                         <p style={{padding:'15px', textAlign:'center', color:'#999'}}>Bu derse kayıtlı öğrenci bulunamadı.</p>
-                      ) : (
-                        sessionStudents.map((student) => (
-                          <div key={student.studentId} className="student-row-item">
-                            
-                            <div className="student-left">
-                              <div className={`student-avatar-box ${getAvatarColor(student.studentName)}`}>
-                                {getInitials(student.studentName)}
-                              </div>
-                              <div className="student-text-info">
-                                <span className="s-name">{student.studentName}</span>
-                                <span className="s-no">{student.schoolNumber}</span>
-                              </div>
-                            </div>
+                  <div className="form-group">
+                    <label style={{display:'flex', alignItems:'center', gap:'8px', marginBottom:'5px', fontWeight:'bold', color:'#555'}}>
+                      <FaCalendarAlt /> Tarih
+                    </label>
+                    <input 
+                      type="date"
+                      value={selectedDateOnly}
+                      onChange={(e) => setSelectedDateOnly(e.target.value)}
+                      style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #ccc', marginBottom: '15px' }}
+                    />
+                  </div>
 
-                            <div className="attendance-actions">
-                              <div 
-                                className={`circle-indicator ${student.status === 'Present' ? 'circle-green' : 'circle-inactive'}`}
-                                onClick={() => handleStatusUpdate(student.studentId, 'Present', 1)}
-                                title="Katıldı Yap"
-                              >
-                                P
-                              </div>
-
-                              <div 
-                                className={`circle-indicator ${student.status === 'Absent' || student.status === 'NotMarked' ? 'circle-red' : 'circle-inactive'}`}
-                                onClick={() => handleStatusUpdate(student.studentId, 'Absent', 2)}
-                                title="Yok Yaz"
-                              >
-                                A
-                              </div>
-
-                              <div 
-                                className={`circle-indicator ${student.status === 'Excused' ? 'circle-yellow' : 'circle-inactive'}`}
-                                onClick={() => handleStatusUpdate(student.studentId, 'Excused', 3)}
-                                title="Mazeretli Yap"
-                              >
-                                E
-                              </div>
-                            </div>
-
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
+                  <div className="form-group">
+                    <label style={{display:'flex', alignItems:'center', gap:'8px', marginBottom:'5px', fontWeight:'bold', color:'#555'}}>
+                      <FaClock /> Ders Saati
+                    </label>
+                    <select
+                      value={selectedPeriodTime}
+                      onChange={(e) => setSelectedPeriodTime(e.target.value)}
+                      style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #ccc', marginBottom: '20px' }}
+                    >
+                      {classPeriods.map(period => (
+                        <option key={period.id} value={period.value}>
+                          {period.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              )}
-            </div>
-          ))
-        )}
-      </div>
+
+                <div className="modal-footer">
+                  <button className="btn-cancel" onClick={handleCloseModal} style={{marginRight: '10px', padding: '10px 20px', border:'none', background:'#f44336', color:'white', borderRadius:'6px', cursor:'pointer'}}>
+                    İptal
+                  </button>
+                  
+                  <button 
+                    className="btn-start-blue" 
+                    onClick={handleStartAttendance}
+                    disabled={submitting || courses.length === 0}
+                    style={{ opacity: submitting ? 0.7 : 1, padding: '10px 20px', border:'none', background:'#2196f3', color:'white', borderRadius:'6px', cursor:'pointer' }}
+                  >
+                    {submitting ? <><FaSpinner className="fa-spin" /> Başlatılıyor...</> : 'Yoklamayı Başlat'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 };
 
-export default TeacherReports;
+export default TeacherAttendance;
