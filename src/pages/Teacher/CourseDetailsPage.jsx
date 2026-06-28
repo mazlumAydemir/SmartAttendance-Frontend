@@ -336,7 +336,7 @@ const CourseDetailsPage = () => {
                     <div className="input-group">
                       <label>Varsayılan Yöntem</label>
                       <select value={settings.defaultMethod} onChange={(e) => setSettings({...settings, defaultMethod: parseInt(e.target.value)})} className="form-control">
-                        <option value={1}>QR Kod</option><option value={2}>Konum (GPS)</option><option value={3}>Yüz Tanıma</option>
+                       <option value={2}>Konum (GPS)</option>
                       </select>
                     </div>
                     <div className="input-group">

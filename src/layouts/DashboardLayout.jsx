@@ -16,7 +16,7 @@ const DashboardLayout = ({ children, role = 'admin' }) => {
       case 'student':
         return 'Öğrenci Portalı';
       case 'teacher':
-        return 'Hoca Portalı';
+        return 'Öğretmen Portalı';
       case 'admin':
       default:
         return 'Admin Portalı';
